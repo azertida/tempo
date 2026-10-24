@@ -150,13 +150,14 @@
 <script>
 (() => {
   'use strict';
-  const VERSION = '1.2';
+  const VERSION = '1.3';
   const P = 'tempo.';
   const NB = ' ';
   const FENETRE = 14;              // jours affichés dans la rangée
   const JOURS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
   const ABR = ['Lun.', 'Mar.', 'Mer.', 'Jeu.', 'Ven.', 'Sam.', 'Dim.'];
-  const PALETTE = ['#7C4DCC', '#D4453E', '#4FA3D1', '#D97A45', '#5FAE7C', '#E3A92F', '#D471A6', '#A79B8A', '#3A342E', '#1F4E6B'];
+  // Palette accordée à Corsia, le bleu en tête.
+  const PALETTE = ['#1F4E6B', '#7AAAC9', '#E8A23A', '#6B3FA0', '#6E9E7A', '#C0643A', '#C46A8F', '#A79B8A', '#3A342E', '#9B2C1F'];
 
   /* ---------- Stockage (tout reste sur ce téléphone) ---------- */
   const lire = (k, d) => { try { const v = localStorage.getItem(P + k); return v === null ? d : JSON.parse(v); } catch { return d; } };
@@ -569,11 +570,14 @@
         <p>Tout reste <strong>sur ce téléphone</strong>${NB}: tes catégories, tes trames, ton calendrier et tes rendez-vous. Tempo n’a pas de serveur, ne crée pas de compte, ne lit pas ton agenda et n’envoie rien à personne.</p>
         <p class="doux">Sur iPhone, l’appli installée sur l’écran d’accueil a son propre rangement, séparé de Safari et des autres applis. D’où l’importance de la sauvegarde.</p>
         <div class="encadre"><h3>Reprendre de Ma trame</h3>
-          <p>Dans Ma trame, utilise son bouton d’export pour enregistrer un fichier, puis choisis-le ici. Tes catégories et tes modèles arrivent tels quels, chaque modèle devient une trame.</p>
+          <p>Dans Ma trame, utilise son bouton d’export pour enregistrer un fichier, puis choisis-le ici. Chaque modèle devient une trame ; les catégories gardent leur nom et prennent les couleurs de Tempo.</p>
           <button class="btn plein" id="impMT">Choisir le fichier de Ma trame</button></div>
         <div class="encadre"><h3>Sauvegarde</h3>
           <p>Un fichier avec toutes tes données, à garder dans tes fichiers. Pour changer de téléphone ou réinstaller Tempo.</p>
           <div class="rangee"><button class="btn" id="exp">Enregistrer une sauvegarde</button><button class="btn" id="imp">Restaurer</button></div></div>
+        <div class="encadre"><h3>Tout effacer de ce téléphone</h3>
+          <p>Catégories, trames, calendrier et rendez-vous. Pour repartir de zéro. Pense à faire une sauvegarde avant, si tu veux pouvoir revenir en arrière.</p>
+          <button class="btn danger" id="toutEffacer">Tout effacer</button></div>
         <input type="file" id="fichier" accept="application/json,.json" hidden>
         <p class="pied">Tempo · version ${VERSION}</p>
       </div>`;
@@ -582,6 +586,11 @@
     const f = document.getElementById('fichier');
     document.getElementById('impMT').onclick = () => { mode = 'matrame'; f.click(); };
     document.getElementById('imp').onclick = () => { mode = 'tempo'; f.click(); };
+    document.getElementById('toutEffacer').onclick = () => {
+      if (!confirm('Tout effacer de Tempo sur ce téléphone ?')) return;
+      categories = []; trames = []; periodes = []; parDefaut = null; evenements = []; exceptions = [];
+      tout(); dire('Tempo est vide'); ecran = 'jour'; afficher();
+    };
     document.getElementById('exp').onclick = () => {
       const paquet = { app: 'tempo', format: 1, exporte: new Date().toISOString(), categories, trames, periodes, parDefaut, evenements, exceptions };
       const url = URL.createObjectURL(new Blob([JSON.stringify(paquet, null, 2)], { type: 'application/json' }));
@@ -605,7 +614,10 @@
     const corresp = {};
     for (const c of p.categories) {
       const deja = categories.find((x) => x.nom.toLowerCase() === String(c.nom).toLowerCase());
-      if (deja) corresp[c.id] = deja.id; else { const id = nid(); corresp[c.id] = id; categories.push({ id, nom: String(c.nom).slice(0, 30), coul: /^#[0-9a-f]{6}$/i.test(c.coul) ? c.coul : '#A79B8A' }); }
+      if (deja) { corresp[c.id] = deja.id; continue; }
+      // Les couleurs de Ma trame ne sont pas reprises : chaque catégorie reçoit une couleur de la palette de Tempo.
+      const libre = PALETTE.find((x) => !categories.some((y) => y.coul === x)) || PALETTE[categories.length % PALETTE.length];
+      const id = nid(); corresp[c.id] = id; categories.push({ id, nom: String(c.nom).slice(0, 30), coul: libre });
     }
     for (const m of p.modeles) {
       const blocs = (m.blocs || []).filter((b) => Number.isInteger(b.jour) && b.jour >= 0 && b.jour <= 6 && b.fin > b.deb)

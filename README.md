@@ -7,7 +7,7 @@ Un agenda pensé autrement, pour une seule personne, qui sépare **ce qui revien
 ## Principes
 
 1. **Séparer ce qui revient de ce qui arrive.** La trame (sans date, stable) en fond ; la semaine réelle par-dessus.
-2. **L'habillage de Corsia** : mêmes couleurs, mêmes polices, même sobriété.
+2. **L'habillage de Corsia** : mêmes couleurs (palette des catégories accordée à Corsia, le bleu en tête), mêmes polices, même sobriété.
 3. **À l'ouverture, la journée en cours.** La semaine est à un geste, avec la rangée de jours en haut.
 
 ## Comment ça marche
@@ -18,7 +18,7 @@ Un agenda pensé autrement, pour une seule personne, qui sépare **ce qui revien
 - **Rendez-vous** (« + Rendez-vous » sur Ma journée) : un titre, une date, une heure de début et de fin, une catégorie facultative. Quand un rendez-vous tombe pendant un bloc de la trame, la carte l'indique (« pendant Club »). Toucher un rendez-vous permet de le modifier ou de le supprimer.
 - **Exceptions** : toucher un bloc de la trame, puis « Pas ce jour-là » ; il apparaît barré ce jour-là seulement, et la trame reste intacte.
 - Les rendez-vous et exceptions passés depuis plus de 60 jours s'effacent tout seuls.
-- **Reprendre de Ma trame** : le fichier exporté par Ma trame s'importe une fois ; chaque modèle devient une trame, les catégories gardent leur nom et leur couleur.
+- **Reprendre de Ma trame** : le fichier exporté par Ma trame s'importe une fois ; chaque modèle devient une trame, les catégories gardent leur nom et prennent les couleurs de Tempo (les couleurs de Ma trame ne sont pas reprises).
 
 ## Données
 
