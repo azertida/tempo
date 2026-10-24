@@ -1,0 +1,568 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Tempo</title>
+<meta name="description" content="Ma journée : la trame qui revient, et ce qui arrive.">
+<meta name="theme-color" content="#FBF5EA">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icones/favicon-32.png" sizes="32x32">
+<link rel="apple-touch-icon" href="icones/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Tempo">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<style>
+  /* Polices hébergées avec l'appli : aucun appel à Google ni à un autre service */
+  @font-face { font-family: 'Fraunces'; font-weight: 600; font-display: swap; src: url('polices/fraunces-latin-600-normal.woff2') format('woff2'); }
+  @font-face { font-family: 'Fraunces'; font-weight: 700; font-display: swap; src: url('polices/fraunces-latin-700-normal.woff2') format('woff2'); }
+  @font-face { font-family: 'Atkinson Hyperlegible'; font-weight: 400; font-display: swap; src: url('polices/atkinson-hyperlegible-latin-400-normal.woff2') format('woff2'); }
+  @font-face { font-family: 'Atkinson Hyperlegible'; font-weight: 700; font-display: swap; src: url('polices/atkinson-hyperlegible-latin-700-normal.woff2') format('woff2'); }
+  :root {
+    --creme: #FBF5EA; --carte: #FFFDF8; --bord: #E8DCC4; --bord-fort: #D9CBB0;
+    --encre: #2B2118; --doux: #5E5040; --ocre: #8F5A1B; --bleu: #1F4E6B; --bleu-pale: #E3EEF4; --violet: #6B3FA0;
+    --sable: #F1E6D3; --rouge: #9B2C1F;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--creme); color: var(--encre); }
+  body {
+    font-family: 'Atkinson Hyperlegible', system-ui, sans-serif; font-size: 17px; line-height: 1.4;
+    padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
+    -webkit-text-size-adjust: 100%;
+  }
+  main { max-width: 520px; margin: 0 auto; padding: 0 16px 40px; }
+  h1, h2, h3 { font-family: 'Fraunces', Georgia, serif; margin: 0; }
+  h1 { font-size: 34px; color: var(--bleu); letter-spacing: -0.5px; line-height: 1.05; }
+  h2 { font-size: 22px; }
+  h3 { font-size: 19px; }
+  .titre-ecran { font-size: 28px; }
+  p { margin: 0; }
+  .doux { color: var(--doux); }
+  button, input, select { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+
+  .entete { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; padding: 18px 0 6px; }
+  .entete .sous { font-size: 16px; color: var(--doux); }
+  .retour { display: flex; align-items: center; padding: 20px 0 8px; }
+  .retour button { background: none; border: none; color: var(--bleu); font-weight: 700; min-height: 46px; padding: 0 8px 0 0; }
+
+  .pile { display: flex; flex-direction: column; gap: 14px; }
+  .carte { background: var(--carte); border: 1px solid var(--bord); border-radius: 18px; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+  .encadre { background: var(--sable); border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+  .quand { font-size: 15px; color: var(--ocre); font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; }
+  .mention { display: inline-flex; align-self: flex-start; background: var(--sable); border-radius: 8px; padding: 3px 10px; font-weight: 700; font-size: 15px; }
+
+  .btn { min-height: 48px; border-radius: 12px; border: 1.5px solid var(--bleu); background: var(--carte); color: var(--bleu);
+         font-weight: 700; font-size: 17px; padding: 0 16px; }
+  .btn.plein { background: var(--bleu); color: #fff; }
+  .btn.discret { border-color: var(--bord-fort); color: var(--encre); }
+  .btn.secondaire { color: var(--ocre); border-color: var(--bord-fort); font-size: 15px; min-height: 44px; }
+  .btn.petit { min-height: 40px; font-size: 15px; padding: 0 12px; }
+  .btn.danger { color: var(--rouge); border-color: var(--bord-fort); }
+  .btn:disabled { opacity: 0.5; }
+  .rangee { display: flex; gap: 10px; flex-wrap: wrap; }
+  .rangee .btn { flex: 1 1 140px; }
+
+  /* Rangée de jours, accrochée en haut */
+  .collant { position: sticky; top: env(safe-area-inset-top); z-index: 5; background: var(--creme); margin: 0 -16px; padding: 6px 16px; }
+  .jours { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; margin: 0 -16px; padding: 0 16px; }
+  .jours::-webkit-scrollbar { display: none; }
+  .jours button { flex: none; width: 60px; min-height: 66px; padding: 6px 4px; border-radius: 12px; border: 1.5px solid var(--bord-fort);
+                  background: var(--carte); display: flex; flex-direction: column; align-items: center; gap: 2px; line-height: 1.15; }
+  .jours .j { font-weight: 700; font-size: 15px; }
+  .jours .n { font-size: 13px; color: var(--doux); }
+  .jours .points { display: flex; gap: 3px; min-height: 8px; margin-top: 2px; }
+  .jours .points i { width: 7px; height: 7px; border-radius: 50%; display: block; }
+  .jours button.conge { border-style: dashed; background: transparent; }
+  .jours button[aria-pressed="true"] { background: var(--bleu); border-color: var(--bleu); color: #fff; }
+  .jours button[aria-pressed="true"] .n { color: #fff; }
+
+  /* La journée */
+  .journee { display: flex; flex-direction: column; gap: 8px; }
+  .bloc { display: grid; grid-template-columns: 62px 1fr; gap: 10px; align-items: stretch; }
+  .bloc .h { font-size: 15px; font-weight: 700; color: var(--doux); padding-top: 12px; text-align: right; }
+  .bloc .corps { border-radius: 14px; padding: 10px 12px 10px 16px; position: relative; overflow: hidden; border: 1px solid var(--bord); }
+  .bloc .corps::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 6px; background: var(--c); }
+  .bloc .nom { font-weight: 700; }
+  .bloc .duree { font-size: 15px; color: var(--doux); }
+  .bloc.passe { opacity: 0.55; }
+  .bloc.encours .corps { border: 2px solid var(--bleu); }
+  .etiquette { font-size: 13px; font-weight: 700; color: var(--bleu); text-transform: uppercase; letter-spacing: 0.5px; }
+  .libre { display: grid; grid-template-columns: 62px 1fr; gap: 10px; font-size: 15px; color: var(--doux); }
+  .libre span:last-child { border-left: 2px dotted var(--bord-fort); padding: 2px 0 2px 14px; margin-left: 4px; }
+  .maintenant { display: grid; grid-template-columns: 62px 1fr; gap: 10px; align-items: center; color: var(--violet); font-weight: 700; font-size: 14px; }
+  .maintenant span:first-child { text-align: right; }
+  .maintenant span:last-child { height: 2px; background: var(--violet); border-radius: 1px; }
+  .vide { text-align: center; color: var(--doux); padding: 26px 12px; border: 1.5px dashed var(--bord-fort); border-radius: 16px; }
+
+  /* Mini-semaine d'une trame */
+  .mini { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 3px; }
+  .mini .col { position: relative; height: 120px; background: var(--sable); border-radius: 6px; overflow: hidden; }
+  .mini .col span { position: absolute; left: 2px; right: 2px; border-radius: 3px; }
+  .mini .tete { font-size: 12px; text-align: center; color: var(--doux); font-weight: 700; }
+
+  /* Listes et formulaires */
+  .ligne { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--bord); }
+  .ligne:last-child { border-bottom: none; }
+  .ligne .texte { flex: 1; min-width: 0; }
+  .ligne .texte b { display: block; }
+  .ligne .texte small { color: var(--doux); font-size: 15px; }
+  .pastille { width: 16px; height: 16px; border-radius: 50%; flex: none; border: 1px solid rgba(0,0,0,.12); }
+  .lien { background: none; border: none; color: var(--ocre); font-weight: 700; min-height: 40px; padding: 0 6px; }
+  .formulaire { display: flex; flex-direction: column; gap: 10px; background: var(--sable); border-radius: 12px; padding: 12px; min-width: 0; }
+  .formulaire > * { min-width: 0; }
+  label.champ { display: flex; flex-direction: column; gap: 6px; font-weight: 700; min-width: 0; }
+  .deux { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  input[type=text], select {
+    min-height: 50px; padding: 0 14px; border-radius: 12px; border: 1.5px solid var(--bord-fort); background: var(--carte); font-size: 18px; font-weight: 400; width: 100%;
+  }
+  /* Safari iOS : champs date et heure enfermés dans un cadre ; le vrai champ est invisible par-dessus. */
+  .boite { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%;
+           min-height: 50px; padding: 0 14px; border-radius: 12px; border: 1.5px solid var(--bord-fort);
+           background: var(--carte); overflow: hidden; min-width: 0; font-size: 18px; font-weight: 400; }
+  .boite .valeur { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .boite input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; padding: 0; border: none;
+                 opacity: 0; -webkit-appearance: none; appearance: none; font-size: 16px; cursor: pointer; }
+  .boite:focus-within { outline: 3px solid #E8A23A; outline-offset: 2px; }
+  input:focus-visible, select:focus-visible, button:focus-visible { outline: 3px solid #E8A23A; outline-offset: 2px; }
+  .couleurs { display: flex; flex-wrap: wrap; gap: 8px; }
+  .couleurs button { width: 36px; height: 36px; border-radius: 50%; border: 2px solid var(--carte); box-shadow: 0 0 0 1px var(--bord-fort); }
+  .couleurs button[aria-pressed="true"] { box-shadow: 0 0 0 3px var(--bleu); }
+
+  .menu { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 8px; }
+  .pied { text-align: center; color: var(--doux); font-size: 14px; margin-top: 16px; }
+  .message { position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom)); transform: translateX(-50%);
+             background: var(--encre); color: #fff; padding: 12px 18px; border-radius: 14px; max-width: 90vw; font-size: 16px; z-index: 10; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main id="app"></main>
+<div class="message" id="message" role="status" hidden></div>
+<script>
+(() => {
+  'use strict';
+  const VERSION = '1.0';
+  const P = 'tempo.';
+  const NB = ' ';
+  const FENETRE = 14;              // jours affichés dans la rangée
+  const JOURS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
+  const ABR = ['Lun.', 'Mar.', 'Mer.', 'Jeu.', 'Ven.', 'Sam.', 'Dim.'];
+  const PALETTE = ['#7C4DCC', '#D4453E', '#4FA3D1', '#D97A45', '#5FAE7C', '#E3A92F', '#D471A6', '#A79B8A', '#3A342E', '#1F4E6B'];
+
+  /* ---------- Stockage (tout reste sur ce téléphone) ---------- */
+  const lire = (k, d) => { try { const v = localStorage.getItem(P + k); return v === null ? d : JSON.parse(v); } catch { return d; } };
+  const ecrire = (k, v) => { try { localStorage.setItem(P + k, JSON.stringify(v)); } catch {} };
+  let categories = lire('categories', []);   // { id, nom, coul }
+  let trames = lire('trames', []);           // { id, nom, blocs: [{ id, jour (0 = lundi), cat, deb, fin }] }  (minutes)
+  let periodes = lire('periodes', []);       // { id, nom, du, au, trame (id ou null = congé) }
+  let parDefaut = lire('parDefaut', null);   // trame en dehors des périodes (null = rien)
+  const tout = () => { ecrire('categories', categories); ecrire('trames', trames); ecrire('periodes', periodes); ecrire('parDefaut', parDefaut); };
+
+  /* ---------- Outils ---------- */
+  const $app = document.getElementById('app');
+  const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const nid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  const pad = (n) => String(n).padStart(2, '0');
+  const iso = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const versDate = (s) => { const [a, m, j] = s.split('-').map(Number); return new Date(a, m - 1, j); };
+  const aujourdhui = () => iso(new Date());
+  const plusJours = (s, n) => { const d = versDate(s); d.setDate(d.getDate() + n); return iso(d); };
+  const jourDe = (s) => (versDate(s).getDay() + 6) % 7;                 // 0 = lundi
+  const premier = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+  const heure = (m) => `${Math.floor(m / 60)}${NB}h${m % 60 ? NB + pad(m % 60) : ''}`;
+  const hhmm = (m) => `${pad(Math.floor(m / 60))}:${pad(m % 60)}`;
+  const minutes = (t) => { const [h, m] = t.split(':').map(Number); return h * 60 + m; };
+  const duree = (m) => { const h = Math.floor(m / 60), r = m % 60; return !h ? `${r}${NB}min` : `${h}${NB}h${r ? NB + pad(r) : ''}`; };
+  const dateLongue = (s) => premier(new Intl.DateTimeFormat('fr-BE', { weekday: 'long', day: 'numeric', month: 'long' }).format(versDate(s))).replace(/ 1 /, ' 1er ');
+  const dateCourte = (s) => new Intl.DateTimeFormat('fr-BE', { day: 'numeric', month: 'short', year: 'numeric' }).format(versDate(s)).replace(/^1 /, '1er ');
+  const cat = (id) => categories.find((c) => c.id === id) || { id, nom: 'Sans catégorie', coul: '#A79B8A' };
+  const trame = (id) => trames.find((t) => t.id === id) || null;
+  const pale = (hex, a = 0.16) => { const n = parseInt(hex.slice(1), 16); return `rgba(${n >> 16},${(n >> 8) & 255},${n & 255},${a})`; };
+  let minuterie;
+  function dire(t) { const m = document.getElementById('message'); m.textContent = t; m.hidden = false; clearTimeout(minuterie); minuterie = setTimeout(() => { m.hidden = true; }, 3200); }
+
+  /* ---------- Quelle trame pour quel jour ? ---------- */
+  // La période la plus récemment ajoutée qui couvre la date l'emporte ; sinon la trame par défaut.
+  function periodeDe(date) {
+    for (let i = periodes.length - 1; i >= 0; i--) { const p = periodes[i]; if (p.du <= date && date <= p.au) return p; }
+    return null;
+  }
+  function trameDu(date) {
+    const p = periodeDe(date);
+    if (p) return { periode: p, trame: p.trame ? trame(p.trame) : null };
+    return { periode: null, trame: parDefaut ? trame(parDefaut) : null };
+  }
+  function blocsDu(date) {
+    const { trame: t } = trameDu(date);
+    if (!t) return [];
+    return t.blocs.filter((b) => b.jour === jourDe(date)).sort((a, b) => a.deb - b.deb || a.fin - b.fin);
+  }
+  function libellePeriode(date) {
+    const { periode: p, trame: t } = trameDu(date);
+    if (p && !p.trame) return p.nom || 'Congé';
+    if (p) return p.nom || t?.nom || 'Période';
+    return t ? t.nom : 'Aucune trame';
+  }
+
+  /* ---------- Écrans ---------- */
+  let ecran = 'jour';
+  let jourVu = aujourdhui();
+  let defil = 0;
+  let trameOuverte = null;
+  let edition = null;      // bloc ou catégorie ou période en cours d'édition
+
+  function afficher() {
+    ({ jour: ecranJour, trames: ecranTrames, trame: ecranTrame, periodes: ecranPeriodes, donnees: ecranDonnees })[ecran]();
+    majBoites();
+  }
+  const retour = (vers = 'jour', texte = '‹ Ma journée') => `<div class="retour"><button id="retour" data-vers="${vers}">${texte}</button></div>`;
+  function brancherRetour() { const r = document.getElementById('retour'); if (r) r.onclick = () => { ecran = r.dataset.vers; edition = null; afficher(); window.scrollTo(0, 0); }; }
+
+  /* ===== Ma journée ===== */
+  function ecranJour() {
+    const auj = aujourdhui();
+    if (jourVu < auj) jourVu = auj;
+    const jours = Array.from({ length: FENETRE }, (_, i) => plusJours(auj, i));
+    const bande = jours.map((d) => {
+      const { periode: p } = trameDu(d);
+      const conge = p && !p.trame;
+      const points = [...new Set(blocsDu(d).map((b) => cat(b.cat).coul))].slice(0, 4).map((c) => `<i style="background:${c}"></i>`).join('');
+      const haut = d === auj ? 'Auj.' : d === plusJours(auj, 1) ? 'Dem.' : ABR[jourDe(d)];
+      return `<button data-jour="${d}" aria-pressed="${d === jourVu}" class="${conge ? 'conge' : ''}" aria-label="${dateLongue(d)}">
+        <span class="j">${haut}</span><span class="n">${Number(d.slice(8))}</span><span class="points">${points}</span></button>`;
+    }).join('');
+
+    const blocs = blocsDu(jourVu);
+    const { periode: p } = trameDu(jourVu);
+    const maintenant = new Date(); const mn = maintenant.getHours() * 60 + maintenant.getMinutes();
+    const estAuj = jourVu === auj;
+    let corps = '';
+    if (!trames.length) {
+      corps = `<div class="encadre"><strong>Bienvenue dans Tempo</strong>
+        <p>Commence par ta trame, la semaine qui revient. Tu peux la reprendre de <strong>Ma trame</strong> (avec son bouton d’export), ou la dessiner ici.</p>
+        <div class="rangee"><button class="btn plein" id="allerImport">Reprendre de Ma trame</button><button class="btn" id="allerTrames">Dessiner ma trame</button></div></div>`;
+    } else if (p && !p.trame) {
+      corps = `<div class="vide"><strong>${esc(p.nom || 'Congé')}</strong><br>Rien dans la trame ce jour-là.</div>`;
+    } else if (!blocs.length) {
+      corps = `<div class="vide">Rien dans la trame ce jour-là.</div>`;
+    } else {
+      const morceaux = [];
+      let fin = null, ligneMaintenant = !estAuj;
+      const placerMaintenant = (avant) => {
+        if (!ligneMaintenant && mn < avant) { morceaux.push(`<div class="maintenant" aria-label="Maintenant"><span>${heure(mn)}</span><span></span></div>`); ligneMaintenant = true; }
+      };
+      let ensuiteMarque = false;
+      blocs.forEach((b) => {
+        if (fin !== null && b.deb > fin) { placerMaintenant(b.deb); morceaux.push(`<div class="libre"><span></span><span>Libre ${duree(b.deb - fin)}</span></div>`); }
+        placerMaintenant(b.deb);
+        const c = cat(b.cat);
+        const etat = !estAuj ? '' : b.fin <= mn ? 'passe' : b.deb <= mn ? 'encours' : '';
+        let etiquette = '';
+        if (etat === 'encours') etiquette = '<div class="etiquette">En cours</div>';
+        else if (estAuj && !etat && !ensuiteMarque) { etiquette = '<div class="etiquette">Ensuite</div>'; ensuiteMarque = true; }
+        if (etat === 'encours') ensuiteMarque = false;
+        morceaux.push(`<div class="bloc ${etat}"><div class="h">${heure(b.deb)}</div>
+          <div class="corps" style="--c:${c.coul};background:${pale(c.coul)}">${etiquette}<div class="nom">${esc(c.nom)}</div>
+          <div class="duree">${heure(b.deb)} – ${heure(b.fin)} · ${duree(b.fin - b.deb)}</div></div></div>`);
+        fin = fin === null ? b.fin : Math.max(fin, b.fin);
+      });
+      if (!ligneMaintenant && estAuj && mn >= fin) morceaux.push(`<div class="maintenant"><span>${heure(mn)}</span><span></span></div>`);
+      corps = `<div class="journee">${morceaux.join('')}</div>`;
+    }
+
+    $app.innerHTML = `
+      <div class="entete"><div><h1>Tempo</h1><div class="sous">${esc(libellePeriode(jourVu))}</div></div></div>
+      <div class="collant"><div class="jours" role="group" aria-label="Jours">${bande}</div></div>
+      <div class="pile">
+        <h2>${jourVu === auj ? 'Aujourd’hui' : jourVu === plusJours(auj, 1) ? 'Demain' : ''}${jourVu === auj || jourVu === plusJours(auj, 1) ? `<span class="doux" style="font-family:'Atkinson Hyperlegible',system-ui,sans-serif;font-size:17px;font-weight:400"> · ${dateLongue(jourVu).toLowerCase()}</span>` : dateLongue(jourVu)}</h2>
+        ${corps}
+        <div class="menu">
+          <button class="btn discret" id="allerTrames">Mes trames</button>
+          <button class="btn discret" id="allerPeriodes">Mes périodes</button>
+        </div>
+        <button class="btn secondaire" id="allerDonnees">Ce que Tempo garde · sauvegarde</button>
+        <p class="pied">Tempo · version ${VERSION}</p>
+      </div>`;
+    const b = $app.querySelector('.jours');
+    b.scrollLeft = defil;
+    const choisi = b.querySelector('[aria-pressed="true"]');
+    if (choisi) { const r = choisi.getBoundingClientRect(), br = b.getBoundingClientRect(); if (r.right > br.right) b.scrollLeft += r.right - br.right + 16; else if (r.left < br.left) b.scrollLeft -= br.left - r.left + 16; }
+    defil = b.scrollLeft;
+    b.addEventListener('scroll', () => { defil = b.scrollLeft; }, { passive: true });
+    b.querySelectorAll('[data-jour]').forEach((x) => x.onclick = () => { jourVu = x.dataset.jour; afficher(); });
+    $app.querySelectorAll('#allerTrames').forEach((x) => x.onclick = () => { ecran = 'trames'; afficher(); window.scrollTo(0, 0); });
+    document.getElementById('allerPeriodes').onclick = () => { ecran = 'periodes'; afficher(); window.scrollTo(0, 0); };
+    document.getElementById('allerDonnees').onclick = () => { ecran = 'donnees'; afficher(); window.scrollTo(0, 0); };
+    const ai = document.getElementById('allerImport'); if (ai) ai.onclick = () => { ecran = 'donnees'; afficher(); };
+  }
+
+  /* ===== Mini-semaine ===== */
+  function mini(t) {
+    const tous = t.blocs; const deb = Math.min(8 * 60, ...tous.map((b) => b.deb)); const fin = Math.max(20 * 60, ...tous.map((b) => b.fin));
+    const h = (m) => ((m - deb) / (fin - deb)) * 100;
+    return `<div class="mini">${ABR.map((a) => `<div class="tete">${a.slice(0, 3)}</div>`).join('')}
+      ${JOURS.map((_, j) => `<div class="col">${tous.filter((b) => b.jour === j).map((b) => `<span style="top:${h(b.deb)}%;height:${Math.max(2, h(b.fin) - h(b.deb))}%;background:${cat(b.cat).coul}"></span>`).join('')}</div>`).join('')}</div>`;
+  }
+
+  /* ===== Mes trames ===== */
+  function ecranTrames() {
+    $app.innerHTML = `${retour()}
+      <div class="pile">
+        <h2 class="titre-ecran">Mes trames</h2>
+        <p class="doux">Ce qui revient chaque semaine, sans date. Une trame par type de période${NB}: périodes de cours, périodes sans cours… C’est dans «${NB}Mes périodes${NB}» que tu dis laquelle s’applique quand.</p>
+        ${trames.map((t) => `<button class="carte" data-trame="${t.id}" style="text-align:left;cursor:pointer">
+          <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><h3>${esc(t.nom)}</h3><span class="doux" style="font-size:15px">${t.blocs.length} bloc${t.blocs.length > 1 ? 's' : ''}</span></div>
+          ${mini(t)}</button>`).join('')}
+        <div class="formulaire">
+          <label class="champ">Nouvelle trame <input type="text" id="nomTrame" maxlength="40" placeholder="Période de cours, Sans cours…"></label>
+          <button class="btn plein" id="ajouterTrame">Créer</button>
+        </div>
+        <h2>Catégories</h2>
+        <div class="carte">${categories.length ? categories.map((c) => `<div class="ligne"><span class="pastille" style="background:${c.coul}"></span>
+          <div class="texte"><b>${esc(c.nom)}</b></div><button class="lien" data-modcat="${c.id}">Modifier</button></div>`).join('') : '<p class="doux">Aucune catégorie pour l’instant.</p>'}</div>
+        ${formCategorie()}
+      </div>`;
+    brancherRetour();
+    $app.querySelectorAll('[data-trame]').forEach((b) => b.onclick = () => { trameOuverte = b.dataset.trame; ecran = 'trame'; edition = null; afficher(); window.scrollTo(0, 0); });
+    document.getElementById('ajouterTrame').onclick = () => {
+      const nom = document.getElementById('nomTrame').value.trim();
+      if (!nom) return dire('Donne un nom à la trame');
+      const t = { id: nid(), nom, blocs: [] }; trames.push(t);
+      if (!parDefaut) parDefaut = t.id;
+      tout(); trameOuverte = t.id; ecran = 'trame'; afficher(); window.scrollTo(0, 0);
+    };
+    brancherCategorie();
+    $app.querySelectorAll('[data-modcat]').forEach((b) => b.onclick = () => { edition = { type: 'cat', id: b.dataset.modcat }; afficher(); document.getElementById('formCat').scrollIntoView({ block: 'center' }); });
+  }
+
+  function formCategorie() {
+    const c = edition?.type === 'cat' ? categories.find((x) => x.id === edition.id) : null;
+    const coul = edition?.coul || c?.coul || PALETTE.find((p) => !categories.some((x) => x.coul === p)) || PALETTE[0];
+    return `<div class="formulaire" id="formCat">
+      <label class="champ">${c ? 'Modifier la catégorie' : 'Nouvelle catégorie'} <input type="text" id="nomCat" maxlength="30" value="${esc(c?.nom || '')}" placeholder="Club, Bureau, Padel…"></label>
+      <div class="couleurs" role="group" aria-label="Couleur">${PALETTE.map((p) => `<button data-coul="${p}" aria-pressed="${p === coul}" style="background:${p}" aria-label="Couleur"></button>`).join('')}</div>
+      <div class="rangee"><button class="btn plein" id="enregCat">${c ? 'Enregistrer' : 'Ajouter'}</button>
+      ${c ? `<button class="btn discret" id="annulerCat">Annuler</button><button class="btn danger" id="supprCat">Supprimer</button>` : ''}</div>
+    </div>`;
+  }
+  function brancherCategorie() {
+    let coul = $app.querySelector('.couleurs [aria-pressed="true"]')?.dataset.coul;
+    $app.querySelectorAll('[data-coul]').forEach((b) => b.onclick = () => {
+      coul = b.dataset.coul; $app.querySelectorAll('[data-coul]').forEach((x) => x.setAttribute('aria-pressed', x === b));
+    });
+    document.getElementById('enregCat').onclick = () => {
+      const nom = document.getElementById('nomCat').value.trim();
+      if (!nom) return dire('Donne un nom à la catégorie');
+      const c = edition?.type === 'cat' ? categories.find((x) => x.id === edition.id) : null;
+      if (c) { c.nom = nom; c.coul = coul; } else categories.push({ id: nid(), nom, coul });
+      edition = null; tout(); afficher();
+    };
+    const an = document.getElementById('annulerCat'); if (an) an.onclick = () => { edition = null; afficher(); };
+    const su = document.getElementById('supprCat');
+    if (su) su.onclick = () => {
+      const id = edition.id;
+      if (trames.some((t) => t.blocs.some((b) => b.cat === id))) return dire('Cette catégorie est utilisée dans une trame');
+      categories = categories.filter((x) => x.id !== id); edition = null; tout(); afficher();
+    };
+  }
+
+  /* ===== Une trame ===== */
+  function ecranTrame() {
+    const t = trame(trameOuverte);
+    if (!t) { ecran = 'trames'; return afficher(); }
+    const enEdition = edition?.type === 'bloc' ? edition : null;
+    const parJour = JOURS.map((nom, j) => {
+      const liste = t.blocs.filter((b) => b.jour === j).sort((a, b) => a.deb - b.deb);
+      const form = enEdition && enEdition.jour === j ? formBloc(enEdition) : '';
+      return `<div class="carte">
+        <div style="display:flex;justify-content:space-between;align-items:center"><h3>${nom}</h3>
+          ${form ? '' : `<button class="btn petit" data-ajout="${j}">+ Bloc</button>`}</div>
+        ${liste.map((b) => enEdition?.id === b.id ? '' : `<div class="ligne"><span class="pastille" style="background:${cat(b.cat).coul}"></span>
+          <div class="texte"><b>${esc(cat(b.cat).nom)}</b><small>${heure(b.deb)} – ${heure(b.fin)} · ${duree(b.fin - b.deb)}</small></div>
+          <button class="lien" data-modbloc="${b.id}">Modifier</button></div>`).join('')}
+        ${!liste.length && !form ? '<p class="doux">Rien ce jour-là.</p>' : ''}
+        ${form}
+      </div>`;
+    }).join('');
+    $app.innerHTML = `${retour('trames', '‹ Mes trames')}
+      <div class="pile">
+        <h2 class="titre-ecran">${esc(t.nom)}</h2>
+        ${mini(t)}
+        ${parJour}
+        <div class="formulaire">
+          <label class="champ">Nom de la trame <input type="text" id="renomTrame" maxlength="40" value="${esc(t.nom)}"></label>
+          <div class="rangee"><button class="btn" id="renommer">Renommer</button><button class="btn" id="dupliquer">Dupliquer</button></div>
+          <button class="btn danger" id="supprTrame">Supprimer cette trame</button>
+        </div>
+      </div>`;
+    brancherRetour();
+    $app.querySelectorAll('[data-ajout]').forEach((b) => b.onclick = () => {
+      if (!categories.length) return dire('Crée d’abord une catégorie, dans « Mes trames »');
+      edition = { type: 'bloc', id: null, jour: Number(b.dataset.ajout), cat: categories[0].id, deb: 9 * 60, fin: 12 * 60 }; afficher();
+      document.querySelector('.formulaire').scrollIntoView({ block: 'center' });
+    });
+    $app.querySelectorAll('[data-modbloc]').forEach((b) => b.onclick = () => {
+      const x = t.blocs.find((y) => y.id === b.dataset.modbloc); edition = { type: 'bloc', ...x }; afficher();
+      document.querySelector('.formulaire').scrollIntoView({ block: 'center' });
+    });
+    if (enEdition) brancherBloc(t);
+    document.getElementById('renommer').onclick = () => { const n = document.getElementById('renomTrame').value.trim(); if (!n) return; t.nom = n; tout(); dire('Trame renommée'); afficher(); };
+    document.getElementById('dupliquer').onclick = () => {
+      const copie = { id: nid(), nom: `${t.nom} (copie)`, blocs: t.blocs.map((b) => ({ ...b, id: nid() })) };
+      trames.push(copie); tout(); trameOuverte = copie.id; afficher(); window.scrollTo(0, 0); dire('Copie créée : renomme-la');
+    };
+    document.getElementById('supprTrame').onclick = () => {
+      if (periodes.some((p) => p.trame === t.id)) return dire('Cette trame est utilisée dans « Mes périodes »');
+      if (!confirm(`Supprimer la trame «${NB}${t.nom}${NB}» ?`)) return;
+      trames = trames.filter((x) => x.id !== t.id); if (parDefaut === t.id) parDefaut = trames[0]?.id || null;
+      tout(); ecran = 'trames'; afficher();
+    };
+  }
+  const boite = (id, type, val) => `<span class="boite"><span class="valeur"></span><input type="${type}" id="${id}" value="${val}"></span>`;
+  function formBloc(e) {
+    return `<div class="formulaire">
+      <label class="champ">Catégorie <select id="catBloc">${categories.map((c) => `<option value="${c.id}" ${c.id === e.cat ? 'selected' : ''}>${esc(c.nom)}</option>`).join('')}</select></label>
+      <div class="deux"><label class="champ">Début ${boite('debBloc', 'time', hhmm(e.deb))}</label><label class="champ">Fin ${boite('finBloc', 'time', hhmm(e.fin))}</label></div>
+      <div class="rangee"><button class="btn plein" id="enregBloc">${e.id ? 'Enregistrer' : 'Ajouter'}</button><button class="btn discret" id="annulerBloc">Annuler</button></div>
+      ${e.id ? '<button class="btn danger" id="supprBloc">Supprimer ce bloc</button>' : ''}
+    </div>`;
+  }
+  function brancherBloc(t) {
+    document.getElementById('enregBloc').onclick = () => {
+      const deb = minutes(document.getElementById('debBloc').value || '00:00'), fin = minutes(document.getElementById('finBloc').value || '00:00');
+      if (fin <= deb) return dire('La fin doit venir après le début');
+      const c = document.getElementById('catBloc').value;
+      if (edition.id) Object.assign(t.blocs.find((b) => b.id === edition.id), { cat: c, deb, fin });
+      else t.blocs.push({ id: nid(), jour: edition.jour, cat: c, deb, fin });
+      edition = null; tout(); afficher();
+    };
+    document.getElementById('annulerBloc').onclick = () => { edition = null; afficher(); };
+    const s = document.getElementById('supprBloc');
+    if (s) s.onclick = () => { t.blocs = t.blocs.filter((b) => b.id !== edition.id); edition = null; tout(); afficher(); };
+  }
+
+  /* ===== Mes périodes ===== */
+  function ecranPeriodes() {
+    const auj = aujourdhui();
+    const tri = periodes.slice().sort((a, b) => a.du.localeCompare(b.du));
+    const choixTrame = (sel) => `<option value="">Congé · aucune trame</option>${trames.map((t) => `<option value="${t.id}" ${t.id === sel ? 'selected' : ''}>${esc(t.nom)}</option>`).join('')}`;
+    const e = edition?.type === 'periode' ? edition : null;
+    $app.innerHTML = `${retour()}
+      <div class="pile">
+        <h2 class="titre-ecran">Mes périodes</h2>
+        <p class="doux">Quelle trame s’applique quand. Un congé, c’est une période sans trame. Quand deux périodes se chevauchent, la plus récemment ajoutée l’emporte${NB}: pratique pour un congé au milieu d’une période de cours.</p>
+        <div class="carte">${tri.length ? tri.map((p) => `<div class="ligne" style="${p.au < auj ? 'opacity:.55' : ''}">
+          <span class="pastille" style="background:${p.trame ? 'var(--bleu)' : 'transparent'};${p.trame ? '' : 'border:2px dashed var(--bord-fort)'}"></span>
+          <div class="texte"><b>${esc(p.nom || (p.trame ? trame(p.trame)?.nom : 'Congé') || 'Période')}</b>
+          <small>${p.du === p.au ? `le ${dateCourte(p.du)}` : `du ${dateCourte(p.du)} au ${dateCourte(p.au)}`} · ${p.trame ? esc(trame(p.trame)?.nom || '?') : 'aucune trame'}</small></div>
+          <button class="lien" data-modper="${p.id}">Modifier</button></div>`).join('') : '<p class="doux">Aucune période pour l’instant.</p>'}</div>
+        <div class="formulaire" id="formPer">
+          <strong>${e?.id ? 'Modifier la période' : 'Nouvelle période'}</strong>
+          <label class="champ">Nom <input type="text" id="nomPer" maxlength="40" value="${esc(e?.nom || '')}" placeholder="1er quadrimestre, Vacances d’hiver…"></label>
+          <div class="deux"><label class="champ">Du ${boite('duPer', 'date', e?.du || auj)}</label><label class="champ">Au ${boite('auPer', 'date', e?.au || plusJours(auj, 6))}</label></div>
+          <label class="champ">Trame <select id="tramePer">${choixTrame(e ? e.trame : trames[0]?.id)}</select></label>
+          <div class="rangee"><button class="btn plein" id="enregPer">${e?.id ? 'Enregistrer' : 'Ajouter'}</button>
+          ${e?.id ? '<button class="btn discret" id="annulerPer">Annuler</button><button class="btn danger" id="supprPer">Supprimer</button>' : ''}</div>
+        </div>
+        <h2>En dehors des périodes</h2>
+        <label class="champ">Les jours qu’aucune période ne couvre <select id="defaut"><option value="">Rien</option>${trames.map((t) => `<option value="${t.id}" ${t.id === parDefaut ? 'selected' : ''}>${esc(t.nom)}</option>`).join('')}</select></label>
+      </div>`;
+    brancherRetour();
+    $app.querySelectorAll('[data-modper]').forEach((b) => b.onclick = () => { edition = { type: 'periode', ...periodes.find((p) => p.id === b.dataset.modper) }; afficher(); document.getElementById('formPer').scrollIntoView({ block: 'center' }); });
+    document.getElementById('enregPer').onclick = () => {
+      const du = document.getElementById('duPer').value, au = document.getElementById('auPer').value;
+      if (!du || !au) return dire('Choisis les deux dates');
+      if (au < du) return dire('La fin doit venir après le début');
+      const v = { nom: document.getElementById('nomPer').value.trim(), du, au, trame: document.getElementById('tramePer').value || null };
+      if (e?.id) Object.assign(periodes.find((p) => p.id === e.id), v); else periodes.push({ id: nid(), ...v });
+      edition = null; tout(); dire('Période enregistrée'); afficher();
+    };
+    const an = document.getElementById('annulerPer'); if (an) an.onclick = () => { edition = null; afficher(); };
+    const su = document.getElementById('supprPer'); if (su) su.onclick = () => { periodes = periodes.filter((p) => p.id !== e.id); edition = null; tout(); afficher(); };
+    document.getElementById('defaut').onchange = (ev) => { parDefaut = ev.target.value || null; tout(); dire('C’est noté'); };
+  }
+
+  /* ===== Données, sauvegarde, import de Ma trame ===== */
+  function ecranDonnees() {
+    $app.innerHTML = `${retour()}
+      <div class="pile">
+        <h2 class="titre-ecran">Ce que Tempo garde</h2>
+        <p>Tout reste <strong>sur ce téléphone</strong>${NB}: tes catégories, tes trames et tes périodes. Tempo n’a pas de serveur, ne crée pas de compte, ne lit pas ton agenda et n’envoie rien à personne.</p>
+        <p class="doux">Sur iPhone, l’appli installée sur l’écran d’accueil a son propre rangement, séparé de Safari et des autres applis. D’où l’importance de la sauvegarde.</p>
+        <div class="encadre"><h3>Reprendre de Ma trame</h3>
+          <p>Dans Ma trame, utilise son bouton d’export pour enregistrer un fichier, puis choisis-le ici. Tes catégories et tes modèles arrivent tels quels, chaque modèle devient une trame.</p>
+          <button class="btn plein" id="impMT">Choisir le fichier de Ma trame</button></div>
+        <div class="encadre"><h3>Sauvegarde</h3>
+          <p>Un fichier avec toutes tes données, à garder dans tes fichiers. Pour changer de téléphone ou réinstaller Tempo.</p>
+          <div class="rangee"><button class="btn" id="exp">Enregistrer une sauvegarde</button><button class="btn" id="imp">Restaurer</button></div></div>
+        <input type="file" id="fichier" accept="application/json,.json" hidden>
+        <p class="pied">Tempo · version ${VERSION}</p>
+      </div>`;
+    brancherRetour();
+    let mode = null;
+    const f = document.getElementById('fichier');
+    document.getElementById('impMT').onclick = () => { mode = 'matrame'; f.click(); };
+    document.getElementById('imp').onclick = () => { mode = 'tempo'; f.click(); };
+    document.getElementById('exp').onclick = () => {
+      const paquet = { app: 'tempo', format: 1, exporte: new Date().toISOString(), categories, trames, periodes, parDefaut };
+      const url = URL.createObjectURL(new Blob([JSON.stringify(paquet, null, 2)], { type: 'application/json' }));
+      const a = document.createElement('a'); a.href = url; a.download = `tempo-${aujourdhui()}.json`; document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 2000); dire('Sauvegarde enregistrée');
+    };
+    f.onchange = () => {
+      const fic = f.files && f.files[0]; f.value = ''; if (!fic) return;
+      const r = new FileReader();
+      r.onload = () => {
+        let p; try { p = JSON.parse(r.result); } catch { return dire('Ce fichier n’est pas lisible'); }
+        if (mode === 'matrame') importerMaTrame(p); else restaurer(p);
+      };
+      r.readAsText(fic);
+    };
+  }
+  function importerMaTrame(p) {
+    if (!p || (p.app !== 'ma-trame' && p.app !== 'ma-semaine') || !Array.isArray(p.categories) || !Array.isArray(p.modeles)) return dire('Ce fichier ne vient pas de Ma trame');
+    const n = p.modeles.length;
+    if ((trames.length || categories.length) && !confirm(`Ajouter ${n} trame${n > 1 ? 's' : ''} de Ma trame à celles de Tempo ? Rien n’est effacé.`)) return;
+    const corresp = {};
+    for (const c of p.categories) {
+      const deja = categories.find((x) => x.nom.toLowerCase() === String(c.nom).toLowerCase());
+      if (deja) corresp[c.id] = deja.id; else { const id = nid(); corresp[c.id] = id; categories.push({ id, nom: String(c.nom).slice(0, 30), coul: /^#[0-9a-f]{6}$/i.test(c.coul) ? c.coul : '#A79B8A' }); }
+    }
+    for (const m of p.modeles) {
+      const blocs = (m.blocs || []).filter((b) => Number.isInteger(b.jour) && b.jour >= 0 && b.jour <= 6 && b.fin > b.deb)
+        .map((b) => ({ id: nid(), jour: b.jour, cat: corresp[b.cat] || b.cat, deb: b.deb, fin: b.fin }));
+      trames.push({ id: nid(), nom: String(m.nom || 'Ma trame').slice(0, 40), blocs });
+    }
+    if (!parDefaut && trames.length) parDefaut = trames[0].id;
+    tout(); dire(`${n} trame${n > 1 ? 's' : ''} reprise${n > 1 ? 's' : ''} de Ma trame`); ecran = 'trames'; afficher(); window.scrollTo(0, 0);
+  }
+  function restaurer(p) {
+    if (!p || p.app !== 'tempo') return dire('Ce fichier n’est pas une sauvegarde de Tempo');
+    if (!confirm('Remplacer tout ce qui est dans Tempo par cette sauvegarde ?')) return;
+    categories = p.categories || []; trames = p.trames || []; periodes = p.periodes || []; parDefaut = p.parDefaut || null;
+    tout(); dire('Sauvegarde restaurée'); ecran = 'jour'; afficher();
+  }
+
+  /* ---------- Champs date et heure ---------- */
+  function majBoites() {
+    document.querySelectorAll('.boite input').forEach((i) => {
+      const v = i.parentElement.querySelector('.valeur');
+      if (!i.value) { v.textContent = 'Choisir…'; return; }
+      v.textContent = i.type === 'date' ? dateCourte(i.value) : heure(minutes(i.value));
+    });
+  }
+  document.addEventListener('input', (e) => { if (e.target.closest('.boite')) majBoites(); });
+  document.addEventListener('change', (e) => { if (e.target.closest('.boite')) majBoites(); });
+
+  // L'heure avance : on redessine la journée chaque minute, et au retour sur l'appli.
+  setInterval(() => { if (ecran === 'jour' && !document.hidden) afficher(); }, 60000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && ecran === 'jour') afficher(); });
+
+  try { navigator.storage?.persist?.(); } catch {}
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then((r) => r.update()).catch(() => {});
+  afficher();
+})();
+</script>
+</body>
+</html>
