@@ -18,17 +18,14 @@ Un agenda pensé autrement, pour une seule personne, qui sépare **ce qui revien
 - **Rendez-vous** (« + Rendez-vous » sur Ma journée) : un titre, une date, une heure de début et de fin, une catégorie facultative. Quand un rendez-vous tombe pendant un bloc de la trame, la carte l'indique (« pendant Club »). Toucher un rendez-vous permet de le modifier ou de le supprimer.
 - **Exceptions** : toucher un bloc de la trame, puis « Pas ce jour-là » ; il apparaît barré ce jour-là seulement, et la trame reste intacte.
 - Les rendez-vous et exceptions passés depuis plus de 60 jours s'effacent tout seuls.
+- **Corsia** (dans « Ce que Tempo garde ») : on colle le lien de secours de Corsia. Tempo y lit le cercle et les habitudes, puis demande au serveur de Corsia le programme des cours et les fermetures (au plus toutes les 30 minutes). Les séances habituelles apparaissent dans Ma journée en bleu clair, une heure chacune, sauf pendant les fermetures ; « Pas ce jour-là » fonctionne aussi pour elles. Les « cette fois » et « pas cette fois » restent dans Corsia ; si les habitudes changent, on recolle le lien.
 - **Reprendre de Ma trame** : le fichier exporté par Ma trame s'importe une fois ; chaque modèle devient une trame, les catégories gardent leur nom et prennent les couleurs de Tempo (les couleurs de Ma trame ne sont pas reprises).
 
 ## Données
 
-Tout reste sur le téléphone (stockage local, préfixe `tempo.`). Pas de serveur, pas de compte, pas d'accès à l'agenda du téléphone, aucun appel extérieur (les polices sont hébergées avec l'appli).
+Tout reste sur le téléphone (stockage local, préfixe `tempo.`). Pas de serveur à soi (seule exception : si Corsia est liée, Tempo lit le programme des cours sur le serveur de Corsia, sans rien y envoyer de ses données), pas de compte, pas d'accès à l'agenda du téléphone, aucun appel extérieur (les polices sont hébergées avec l'appli).
 
 Sur iPhone, l'appli installée sur l'écran d'accueil a son propre stockage, séparé de Safari : la **sauvegarde** (fichier JSON) sert à changer de téléphone ou à réinstaller.
-
-## À venir
-
-- Les séances de Corsia, par son lien de secours.
 
 ## Fichiers
 

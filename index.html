@@ -20,7 +20,7 @@
   @font-face { font-family: 'Atkinson Hyperlegible'; font-weight: 700; font-display: swap; src: url('polices/atkinson-hyperlegible-latin-700-normal.woff2') format('woff2'); }
   :root {
     --creme: #FBF5EA; --carte: #FFFDF8; --bord: #E8DCC4; --bord-fort: #D9CBB0;
-    --encre: #2B2118; --doux: #5E5040; --ocre: #8F5A1B; --bleu: #1F4E6B; --bleu-pale: #E3EEF4; --violet: #6B3FA0;
+    --encre: #2B2118; --doux: #5E5040; --ocre: #8F5A1B; --bleu: #1F4E6B; --bleu-clair: #7AAAC9; --bleu-pale: #E3EEF4; --violet: #6B3FA0;
     --sable: #F1E6D3; --rouge: #9B2C1F;
   }
   * { box-sizing: border-box; }
@@ -52,9 +52,10 @@
   .quand { font-size: 15px; color: var(--ocre); font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; }
   .mention { display: inline-flex; align-self: flex-start; background: var(--sable); border-radius: 8px; padding: 3px 10px; font-weight: 700; font-size: 15px; }
 
-  .btn { min-height: 48px; border-radius: 12px; border: 1.5px solid var(--bleu); background: var(--carte); color: var(--bleu);
+  .btn { min-height: 48px; border-radius: 12px; border: 1.5px solid var(--bleu-clair); background: var(--carte); color: var(--bleu);
          font-weight: 700; font-size: 17px; padding: 0 16px; }
-  .btn.plein { background: var(--bleu); color: #fff; }
+  .btn.plein { background: var(--bleu); color: #fff; border-color: var(--bleu); }
+  .btn.clair { background: var(--bleu-clair); border-color: var(--bleu-clair); color: var(--encre); }
   .btn.discret { border-color: var(--bord-fort); color: var(--encre); }
   .btn.secondaire { color: var(--ocre); border-color: var(--bord-fort); font-size: 15px; min-height: 44px; }
   .btn.petit { min-height: 40px; font-size: 15px; padding: 0 12px; }
@@ -74,8 +75,8 @@
   .jours .points { display: flex; gap: 3px; min-height: 8px; margin-top: 2px; }
   .jours .points i { width: 7px; height: 7px; border-radius: 50%; display: block; }
   .jours button.conge { border-style: dashed; background: transparent; }
-  .jours button[aria-pressed="true"] { background: var(--bleu); border-color: var(--bleu); color: #fff; }
-  .jours button[aria-pressed="true"] .n { color: #fff; }
+  /* Jour choisi : épais contour bleu clair sur le fond habituel, pour que les points gardent leur couleur. */
+  .jours button[aria-pressed="true"] { border: 3px solid var(--bleu-clair); padding: 4.5px 2.5px; }
 
   /* La journée */
   .journee { display: flex; flex-direction: column; gap: 8px; }
@@ -94,7 +95,7 @@
   .mention-saute { font-size: 13px; font-weight: 700; color: var(--violet); text-decoration: none; display: inline-block; margin-left: 4px; }
   .pendant { font-size: 14px; color: var(--violet); font-weight: 700; margin-top: 2px; }
   .actions { grid-column: 2; display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
-  .bloc.encours .corps { border: 2px solid var(--bleu); }
+  .bloc.encours .corps { border: 3px solid var(--bleu-clair); }
   .etiquette { font-size: 13px; font-weight: 700; color: var(--bleu); text-transform: uppercase; letter-spacing: 0.5px; }
   .libre { display: grid; grid-template-columns: 62px 1fr; gap: 10px; font-size: 15px; color: var(--doux); }
   .libre span:last-child { border-left: 2px dotted var(--bord-fort); padding: 2px 0 2px 14px; margin-left: 4px; }
@@ -150,7 +151,7 @@
 <script>
 (() => {
   'use strict';
-  const VERSION = '1.4';
+  const VERSION = '1.7';
   const P = 'tempo.';
   const NB = ' ';
   const FENETRE = 14;              // jours affichés dans la rangée
@@ -168,8 +169,9 @@
   let parDefaut = lire('parDefaut', null);   // trame en dehors des périodes (null = rien)
   let evenements = lire('evenements', []);   // ce qui arrive : { id, date, titre, deb, fin, cat (id ou null = rendez-vous) }
   let exceptions = lire('exceptions', []);   // blocs de la trame sautés un jour : "idBloc|date"
+  let corsia = lire('corsia', null);         // lien avec Corsia : { c, nom, h: [cours habituels], cours, inter, maj }
   const tout = () => { ecrire('categories', categories); ecrire('trames', trames); ecrire('periodes', periodes); ecrire('parDefaut', parDefaut);
-                       ecrire('evenements', evenements); ecrire('exceptions', exceptions); };
+                       ecrire('evenements', evenements); ecrire('exceptions', exceptions); ecrire('corsia', corsia); };
   // Ce qui est passé depuis plus de 60 jours s'efface tout seul.
   (() => { const d = new Date(); d.setDate(d.getDate() - 60); const limite = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     evenements = evenements.filter((e) => e.date >= limite); exceptions = exceptions.filter((k) => k.split('|')[1] >= limite); })();
@@ -240,10 +242,50 @@
   function elementsDu(date) {
     const tr = blocsDu(date).map((b) => ({ type: 'trame', id: b.id, deb: b.deb, fin: b.fin, cat: b.cat, saute: exceptions.includes(b.id + '|' + date) }));
     const ev = evenements.filter((e) => e.date === date).map((e) => ({ type: 'rdv', id: e.id, deb: e.deb, fin: e.fin, cat: e.cat, titre: e.titre }));
-    return [...tr, ...ev].sort((a, b) => a.deb - b.deb || (a.type === 'rdv') - (b.type === 'rdv'));
+    return [...tr, ...ev, ...seancesCorsia(date)].sort((a, b) => a.deb - b.deb || (a.type === 'rdv') - (b.type === 'rdv'));
   }
   const RDV = { nom: 'Rendez-vous', coul: '#3A342E' };
   const catRdv = (id) => (id ? cat(id) : RDV);
+  const CORSIA = { nom: 'Corsia', coul: '#7AAAC9' };
+  const couleurDe = (x) => (x.type === 'rdv' ? catRdv(x.cat) : x.type === 'corsia' ? CORSIA : cat(x.cat));
+
+  /* ---------- Corsia : tes séances habituelles, lues avec ton lien de secours ---------- */
+  const API_CORSIA = 'https://azertida.alwaysdata.net/corsia/api.php';
+  const DUREE_SEANCE = 60;     // Corsia ne connaît que l'heure de début : on compte une heure
+  const ecart = (a, b) => Math.round((versDate(b) - versDate(a)) / 864e5);
+  function aLieu(c, date) {    // même règle que Corsia
+    if (c.rythme === 0) return date === c.ref;
+    if (jourDe(date) + 1 !== c.jour) return false;
+    if (c.rythme === 2 && c.ref) return date >= c.ref && ecart(c.ref, date) % 14 === 0;
+    return true;
+  }
+  function seancesCorsia(date) {
+    if (!corsia || !corsia.cours) return [];
+    return corsia.cours.filter((c) => corsia.h.includes(c.id) && aLieu(c, date))
+      .filter((c) => !(corsia.inter || []).some((i) => (!i.cours || i.cours === c.id) && i.du <= date && date <= i.au))
+      .map((c) => { const id = 'corsia:' + c.id, deb = minutes(c.heure);
+        return { type: 'corsia', id, deb, fin: deb + DUREE_SEANCE, titre: c.nom, saute: exceptions.includes(id + '|' + date) }; });
+  }
+  function lireLienCorsia(texte) {
+    const m = String(texte).match(/#moi=([A-Za-z0-9_-]+)/);
+    if (!m) return null;
+    try {
+      const b = atob(m[1].replace(/-/g, '+').replace(/_/g, '/'));
+      const o = JSON.parse(new TextDecoder().decode(Uint8Array.from(b, (x) => x.charCodeAt(0))));
+      return o && /^[0-9a-f]{18}$/.test(o.c) ? o : null;
+    } catch { return null; }
+  }
+  async function majCorsia(forcer = false) {
+    if (!corsia || !navigator.onLine) return false;
+    if (!forcer && corsia.maj && Date.now() - corsia.maj < 30 * 60e3) return false;
+    try {
+      const r = await fetch(`${API_CORSIA}?action=semaine&c=${corsia.c}`);
+      if (!r.ok) return false;
+      const d = await r.json();
+      corsia.cours = d.cours || []; corsia.inter = d.interruptions || []; corsia.nom = d.nom || corsia.nom; corsia.maj = Date.now();
+      tout(); return true;
+    } catch { return false; }
+  }
 
   function ecranJour() {
     const auj = aujourdhui();
@@ -253,7 +295,7 @@
       const { periode: p } = trameDu(d);
       const conge = p && !p.trame;
       const els = elementsDu(d).filter((x) => !x.saute);
-      const points = [...new Set(els.map((x) => (x.type === 'rdv' ? catRdv(x.cat) : cat(x.cat)).coul))].slice(0, 4).map((c) => `<i style="background:${c}"></i>`).join('');
+      const points = [...new Set(els.map((x) => couleurDe(x).coul))].slice(0, 4).map((c) => `<i style="background:${c}"></i>`).join('');
       const haut = d === auj ? 'Auj.' : d === plusJours(auj, 1) ? 'Dem.' : ABR[jourDe(d)];
       return `<button data-jour="${d}" aria-pressed="${d === jourVu}" class="${conge ? 'conge' : ''}" aria-label="${dateLongue(d)}">
         <span class="j">${haut}</span><span class="n">${Number(d.slice(8))}</span><span class="points">${points}</span></button>`;
@@ -282,22 +324,22 @@
           if (fin !== null && x.deb > fin) { placerMaintenant(x.deb); morceaux.push(`<div class="libre"><span></span><span>Libre ${duree(x.deb - fin)}</span></div>`); }
           placerMaintenant(x.deb);
         }
-        const c = x.type === 'rdv' ? catRdv(x.cat) : cat(x.cat);
+        const c = couleurDe(x);
         const etat = x.saute || !estAuj ? '' : x.fin <= mn ? 'passe' : x.deb <= mn ? 'encours' : '';
         let etiquette = '';
         if (etat === 'encours') etiquette = '<div class="etiquette">En cours</div>';
         else if (estAuj && !etat && !x.saute && !ensuiteMarque) { etiquette = '<div class="etiquette">Ensuite</div>'; ensuiteMarque = true; }
         // Un rendez-vous qui tombe pendant un bloc de la trame : on le signale.
-        const pendant = x.type === 'rdv' ? actifs.filter((y) => y.type === 'trame' && y.deb < x.fin && x.deb < y.fin).map((y) => cat(y.cat).nom) : [];
+        const pendant = x.type !== 'trame' ? actifs.filter((y) => y.type === 'trame' && y.deb < x.fin && x.deb < y.fin).map((y) => cat(y.cat).nom) : [];
         const ouvert = ouvertId === x.id;
-        const actions = !ouvert ? '' : x.type === 'trame'
+        const actions = !ouvert ? '' : x.type !== 'rdv'
           ? `<div class="actions"><button class="btn petit" data-sauter="${x.id}">${x.saute ? 'Rétablir ce jour-là' : 'Pas ce jour-là'}</button></div>`
           : `<div class="actions"><button class="btn petit" data-modrdv="${x.id}">Modifier</button><button class="btn petit danger" data-supprrdv="${x.id}">Supprimer</button></div>`;
-        const style = x.type === 'rdv' ? `--c:${c.coul};background:var(--carte);border:2px solid ${c.coul}` : `--c:${c.coul};background:${pale(c.coul)}`;
-        morceaux.push(`<div class="bloc ${etat} ${x.saute ? 'saute' : ''} ${x.type}"><div class="h">${heure(x.deb)}</div>
+        const style = x.type !== 'trame' ? `--c:${c.coul};background:var(--carte);border:2px solid ${c.coul}` : `--c:${c.coul};background:${pale(c.coul)}`;
+        morceaux.push(`<div class="bloc ${etat} ${x.saute ? 'saute' : ''} ${x.type === 'trame' ? 'trame' : 'rdv'}"><div class="h">${heure(x.deb)}</div>
           <button class="corps" data-ouvrir="${x.id}" style="${style}" aria-expanded="${ouvert}">${etiquette}
-          <div class="nom">${esc(x.type === 'rdv' ? x.titre : c.nom)}${x.saute ? ' <span class="mention-saute">pas ce jour-là</span>' : ''}</div>
-          <div class="duree">${heure(x.deb)} – ${heure(x.fin)} · ${duree(x.fin - x.deb)}${x.type === 'rdv' && x.cat ? ` · ${esc(c.nom)}` : ''}</div>
+          <div class="nom">${esc(x.type === 'trame' ? c.nom : x.titre)}${x.saute ? ' <span class="mention-saute">pas ce jour-là</span>' : ''}</div>
+          <div class="duree">${heure(x.deb)} – ${heure(x.fin)} · ${duree(x.fin - x.deb)}${x.type === 'rdv' && x.cat ? ` · ${esc(c.nom)}` : ''}${x.type === 'corsia' ? ' · Corsia' : ''}</div>
           ${pendant.length ? `<div class="pendant">pendant ${esc(pendant.join(', '))}</div>` : ''}</button>${actions}</div>`);
         if (!x.saute) fin = fin === null ? x.fin : Math.max(fin, x.fin);
       });
@@ -306,7 +348,7 @@
     }
 
     const e = edition?.type === 'rdv' ? edition : null;
-    const formRdv = !e ? `<button class="btn" id="nouveauRdv">+ Rendez-vous</button>` : `<div class="formulaire" id="formRdv">
+    const formRdv = !e ? `<button class="btn clair" id="nouveauRdv">+ Rendez-vous</button>` : `<div class="formulaire" id="formRdv">
         <strong>${e.id ? 'Modifier le rendez-vous' : 'Nouveau rendez-vous'}</strong>
         <label class="champ">Quoi <input type="text" id="titreRdv" maxlength="60" value="${esc(e.titre || '')}" placeholder="Dentiste, café avec Marie…"></label>
         <label class="champ">Date ${boite('dateRdv', 'date', e.date)}</label>
@@ -381,7 +423,23 @@
     const tous = t.blocs; const deb = Math.min(8 * 60, ...tous.map((b) => b.deb)); const fin = Math.max(20 * 60, ...tous.map((b) => b.fin));
     const h = (m) => ((m - deb) / (fin - deb)) * 100;
     return `<div class="mini">${ABR.map((a) => `<div class="tete">${a.slice(0, 3)}</div>`).join('')}
-      ${JOURS.map((_, j) => `<div class="col">${tous.filter((b) => b.jour === j).map((b) => `<span style="top:${h(b.deb)}%;height:${Math.max(2, h(b.fin) - h(b.deb))}%;background:${cat(b.cat).coul}"></span>`).join('')}</div>`).join('')}</div>`;
+      ${JOURS.map((_, j) => `<div class="col">${couloirs(tous.filter((b) => b.jour === j)).map(({ b, c, n }) =>
+        `<span style="top:${h(b.deb)}%;height:${Math.max(2, h(b.fin) - h(b.deb))}%;left:calc(${(c / n) * 100}% + 2px);width:calc(${100 / n}% - 4px);right:auto;background:${cat(b.cat).coul}"></span>`).join('')}</div>`).join('')}</div>`;
+  }
+  // Blocs qui se chevauchent : côte à côte, chacun dans son couloir (comme dans Ma trame).
+  function couloirs(liste) {
+    const tri = liste.slice().sort((a, b) => a.deb - b.deb || b.fin - a.fin);
+    const res = []; let groupe = [], finGroupe = -1;
+    const fermer = () => { const n = Math.max(1, ...groupe.map((x) => x.c + 1)); groupe.forEach((x) => { x.n = n; res.push(x); }); groupe = []; };
+    for (const b of tri) {
+      if (groupe.length && b.deb >= finGroupe) fermer();
+      const libres = groupe.filter((x) => x.b.fin <= b.deb).map((x) => x.c);
+      const pris = new Set(groupe.filter((x) => x.b.fin > b.deb).map((x) => x.c));
+      let c = 0; while (pris.has(c)) c++;
+      groupe.push({ b, c }); finGroupe = Math.max(finGroupe, b.fin);
+    }
+    if (groupe.length) fermer();
+    return res;
   }
 
   /* ===== Mes trames ===== */
@@ -568,10 +626,19 @@
       <div class="pile">
         <h2 class="titre-ecran">Ce que Tempo garde</h2>
         <p>Tout reste <strong>sur ce téléphone</strong>${NB}: tes catégories, tes trames, ton calendrier et tes rendez-vous. Tempo n’a pas de serveur, ne crée pas de compte, ne lit pas ton agenda et n’envoie rien à personne.</p>
+        <p class="doux">Seule exception, si tu lies Corsia${NB}: Tempo demande au serveur de Corsia le programme des cours de ton cercle, comme le fait Corsia. Il n’y envoie rien de tes trames ni de tes rendez-vous.</p>
         <p class="doux">Sur iPhone, l’appli installée sur l’écran d’accueil a son propre rangement, séparé de Safari et des autres applis. D’où l’importance de la sauvegarde.</p>
         <div class="encadre"><h3>Reprendre de Ma trame</h3>
           <p>Dans Ma trame, utilise son bouton d’export pour enregistrer un fichier, puis choisis-le ici. Chaque modèle devient une trame ; les catégories gardent leur nom et prennent les couleurs de Tempo.</p>
           <button class="btn plein" id="impMT">Choisir le fichier de Ma trame</button></div>
+        <div class="encadre"><h3>Corsia</h3>
+          ${corsia ? `<p>Lié au cercle <strong>${esc(corsia.nom || 'Corsia')}</strong>${NB}: ${corsia.h.length} habitude${corsia.h.length > 1 ? 's' : ''}.
+            ${corsia.maj ? `<span class="doux">Programme lu le ${new Intl.DateTimeFormat('fr-BE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(corsia.maj))}.</span>` : ''}</p>
+            <p class="doux">Tes séances habituelles apparaissent dans Ma journée (une heure chacune), sauf pendant les fermetures. Les «${NB}cette fois${NB}» et «${NB}pas cette fois${NB}» restent dans Corsia. Si tu changes d’habitudes, recolle ton lien.</p>`
+          : `<p>Colle ici ton <strong>lien de secours</strong> Corsia (dans Corsia${NB}: ton animal › Mon lien de secours › Copier). Tempo y lit ton cercle et tes habitudes, puis demande au serveur de Corsia le programme des cours et les fermetures.</p>`}
+          <label class="champ">Lien de secours <input type="text" id="lienCorsia" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="https://…#moi=…"></label>
+          <div class="rangee"><button class="btn ${corsia ? '' : 'plein'}" id="lierCorsia">${corsia ? 'Mettre à jour' : 'Lier Corsia'}</button>
+          ${corsia ? '<button class="btn discret" id="delierCorsia">Délier</button>' : ''}</div></div>
         <div class="encadre"><h3>Sauvegarde</h3>
           <p>Un fichier avec toutes tes données, à garder dans tes fichiers. Pour changer de téléphone ou réinstaller Tempo.</p>
           <div class="rangee"><button class="btn" id="exp">Enregistrer une sauvegarde</button><button class="btn" id="imp">Restaurer</button></div></div>
@@ -586,13 +653,25 @@
     const f = document.getElementById('fichier');
     document.getElementById('impMT').onclick = () => { mode = 'matrame'; f.click(); };
     document.getElementById('imp').onclick = () => { mode = 'tempo'; f.click(); };
+    document.getElementById('lierCorsia').onclick = async (ev) => {
+      const o = lireLienCorsia(document.getElementById('lienCorsia').value);
+      if (!o) return dire('Ce n’est pas un lien de secours Corsia');
+      ev.target.disabled = true;
+      corsia = { c: o.c, nom: o.n || '', h: Array.isArray(o.h) ? o.h : [], cours: corsia?.c === o.c ? corsia.cours : [], inter: [], maj: 0 };
+      tout();
+      const ok = await majCorsia(true);
+      dire(ok ? 'Corsia est liée' : 'Lien enregistré ; le programme sera lu à la prochaine connexion');
+      afficher();
+    };
+    const dl = document.getElementById('delierCorsia');
+    if (dl) dl.onclick = () => { corsia = null; tout(); dire('Corsia est déliée'); afficher(); };
     document.getElementById('toutEffacer').onclick = () => {
       if (!confirm('Tout effacer de Tempo sur ce téléphone ?')) return;
-      categories = []; trames = []; periodes = []; parDefaut = null; evenements = []; exceptions = [];
+      categories = []; trames = []; periodes = []; parDefaut = null; evenements = []; exceptions = []; corsia = null;
       tout(); dire('Tempo est vide'); ecran = 'jour'; afficher();
     };
     document.getElementById('exp').onclick = () => {
-      const paquet = { app: 'tempo', format: 1, exporte: new Date().toISOString(), categories, trames, periodes, parDefaut, evenements, exceptions };
+      const paquet = { app: 'tempo', format: 1, exporte: new Date().toISOString(), categories, trames, periodes, parDefaut, evenements, exceptions, corsia };
       const url = URL.createObjectURL(new Blob([JSON.stringify(paquet, null, 2)], { type: 'application/json' }));
       const a = document.createElement('a'); a.href = url; a.download = `tempo-${aujourdhui()}.json`; document.body.appendChild(a); a.click(); a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 2000); dire('Sauvegarde enregistrée');
@@ -631,7 +710,7 @@
     if (!p || p.app !== 'tempo') return dire('Ce fichier n’est pas une sauvegarde de Tempo');
     if (!confirm('Remplacer tout ce qui est dans Tempo par cette sauvegarde ?')) return;
     categories = p.categories || []; trames = p.trames || []; periodes = p.periodes || []; parDefaut = p.parDefaut || null;
-    evenements = p.evenements || []; exceptions = p.exceptions || [];
+    evenements = p.evenements || []; exceptions = p.exceptions || []; corsia = p.corsia || null;
     tout(); dire('Sauvegarde restaurée'); ecran = 'jour'; afficher();
   }
 
@@ -653,6 +732,8 @@
   try { navigator.storage?.persist?.(); } catch {}
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then((r) => r.update()).catch(() => {});
   afficher();
+  majCorsia().then((change) => { if (change && ecran === 'jour') afficher(); });
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) majCorsia().then((c) => { if (c && ecran === 'jour') afficher(); }); });
 })();
 </script>
 </body>
