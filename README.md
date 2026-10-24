@@ -13,8 +13,11 @@ Un agenda pensé autrement, pour une seule personne, qui sépare **ce qui revien
 ## Comment ça marche
 
 - **Mes trames** : une trame par type de période (périodes de cours, sans cours…). Chaque trame est une semaine type faite de blocs : un jour, une catégorie, une heure de début et de fin.
-- **Mes périodes** : quelle trame s'applique du … au …. Un congé est une période sans trame. Quand deux périodes se chevauchent, la plus récemment ajoutée l'emporte (un congé au milieu d'une période de cours, par exemple). En dehors des périodes, une trame par défaut, ou rien.
-- **Ma journée** (écran d'ouverture) : les blocs du jour, avec « En cours », « Ensuite », le temps libre entre deux blocs et une ligne violette pour l'heure qu'il est. En haut, les 14 prochains jours, avec un point par catégorie et un cadre en pointillés pour les congés.
+- **Mon calendrier** : les périodes, c'est-à-dire quelle trame s'applique du … au …. Un congé est une période sans trame. Quand deux périodes se chevauchent, la plus récemment ajoutée l'emporte (un congé au milieu d'une période de cours, par exemple). En dehors des périodes, une trame par défaut, ou rien.
+- **Ma journée** (écran d'ouverture) : les blocs de la trame en teinte pâle et les rendez-vous en carte pleine, avec « En cours », « Ensuite », le temps libre entre deux blocs et une ligne violette pour l'heure qu'il est. En haut, les 14 prochains jours, avec un point par catégorie et un cadre en pointillés pour les congés.
+- **Rendez-vous** (« + Rendez-vous » sur Ma journée) : un titre, une date, une heure de début et de fin, une catégorie facultative. Quand un rendez-vous tombe pendant un bloc de la trame, la carte l'indique (« pendant Club »). Toucher un rendez-vous permet de le modifier ou de le supprimer.
+- **Exceptions** : toucher un bloc de la trame, puis « Pas ce jour-là » ; il apparaît barré ce jour-là seulement, et la trame reste intacte.
+- Les rendez-vous et exceptions passés depuis plus de 60 jours s'effacent tout seuls.
 - **Reprendre de Ma trame** : le fichier exporté par Ma trame s'importe une fois ; chaque modèle devient une trame, les catégories gardent leur nom et leur couleur.
 
 ## Données
@@ -25,7 +28,6 @@ Sur iPhone, l'appli installée sur l'écran d'accueil a son propre stockage, sé
 
 ## À venir
 
-- Les rendez-vous et les exceptions d'un jour (la semaine réelle).
 - Les séances de Corsia, par son lien de secours.
 
 ## Fichiers

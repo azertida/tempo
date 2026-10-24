@@ -86,6 +86,14 @@
   .bloc .nom { font-weight: 700; }
   .bloc .duree { font-size: 15px; color: var(--doux); }
   .bloc.passe { opacity: 0.55; }
+  .bloc .corps { width: 100%; text-align: left; font: inherit; color: inherit; cursor: pointer; }
+  .bloc.rdv .corps { box-shadow: 0 1px 3px rgba(43,33,24,.12); }
+  .bloc.saute .corps { background: transparent !important; border-style: dashed; }
+  .bloc.saute .corps::before { opacity: .35; }
+  .bloc.saute .nom { text-decoration: line-through; color: var(--doux); }
+  .mention-saute { font-size: 13px; font-weight: 700; color: var(--violet); text-decoration: none; display: inline-block; margin-left: 4px; }
+  .pendant { font-size: 14px; color: var(--violet); font-weight: 700; margin-top: 2px; }
+  .actions { grid-column: 2; display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
   .bloc.encours .corps { border: 2px solid var(--bleu); }
   .etiquette { font-size: 13px; font-weight: 700; color: var(--bleu); text-transform: uppercase; letter-spacing: 0.5px; }
   .libre { display: grid; grid-template-columns: 62px 1fr; gap: 10px; font-size: 15px; color: var(--doux); }
@@ -142,7 +150,7 @@
 <script>
 (() => {
   'use strict';
-  const VERSION = '1.1';
+  const VERSION = '1.2';
   const P = 'tempo.';
   const NB = ' ';
   const FENETRE = 14;              // jours affichés dans la rangée
@@ -157,7 +165,13 @@
   let trames = lire('trames', []);           // { id, nom, blocs: [{ id, jour (0 = lundi), cat, deb, fin }] }  (minutes)
   let periodes = lire('periodes', []);       // { id, nom, du, au, trame (id ou null = congé) }
   let parDefaut = lire('parDefaut', null);   // trame en dehors des périodes (null = rien)
-  const tout = () => { ecrire('categories', categories); ecrire('trames', trames); ecrire('periodes', periodes); ecrire('parDefaut', parDefaut); };
+  let evenements = lire('evenements', []);   // ce qui arrive : { id, date, titre, deb, fin, cat (id ou null = rendez-vous) }
+  let exceptions = lire('exceptions', []);   // blocs de la trame sautés un jour : "idBloc|date"
+  const tout = () => { ecrire('categories', categories); ecrire('trames', trames); ecrire('periodes', periodes); ecrire('parDefaut', parDefaut);
+                       ecrire('evenements', evenements); ecrire('exceptions', exceptions); };
+  // Ce qui est passé depuis plus de 60 jours s'efface tout seul.
+  (() => { const d = new Date(); d.setDate(d.getDate() - 60); const limite = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    evenements = evenements.filter((e) => e.date >= limite); exceptions = exceptions.filter((k) => k.split('|')[1] >= limite); })();
 
   /* ---------- Outils ---------- */
   const $app = document.getElementById('app');
@@ -210,7 +224,8 @@
   let jourVu = aujourdhui();
   let defil = 0;
   let trameOuverte = null;
-  let edition = null;      // bloc ou catégorie ou période en cours d'édition
+  let edition = null;      // bloc, catégorie, période ou rendez-vous en cours d'édition
+  let ouvertId = null;     // élément de la journée dont on montre les actions
 
   function afficher() {
     ({ jour: ecranJour, trames: ecranTrames, trame: ecranTrame, periodes: ecranPeriodes, donnees: ecranDonnees })[ecran]();
@@ -220,6 +235,15 @@
   function brancherRetour() { const r = document.getElementById('retour'); if (r) r.onclick = () => { ecran = r.dataset.vers; edition = null; afficher(); window.scrollTo(0, 0); }; }
 
   /* ===== Ma journée ===== */
+  // Un élément de la journée : un bloc de la trame (ce qui revient) ou un rendez-vous (ce qui arrive).
+  function elementsDu(date) {
+    const tr = blocsDu(date).map((b) => ({ type: 'trame', id: b.id, deb: b.deb, fin: b.fin, cat: b.cat, saute: exceptions.includes(b.id + '|' + date) }));
+    const ev = evenements.filter((e) => e.date === date).map((e) => ({ type: 'rdv', id: e.id, deb: e.deb, fin: e.fin, cat: e.cat, titre: e.titre }));
+    return [...tr, ...ev].sort((a, b) => a.deb - b.deb || (a.type === 'rdv') - (b.type === 'rdv'));
+  }
+  const RDV = { nom: 'Rendez-vous', coul: '#3A342E' };
+  const catRdv = (id) => (id ? cat(id) : RDV);
+
   function ecranJour() {
     const auj = aujourdhui();
     if (jourVu < auj) jourVu = auj;
@@ -227,49 +251,68 @@
     const bande = jours.map((d) => {
       const { periode: p } = trameDu(d);
       const conge = p && !p.trame;
-      const points = [...new Set(blocsDu(d).map((b) => cat(b.cat).coul))].slice(0, 4).map((c) => `<i style="background:${c}"></i>`).join('');
+      const els = elementsDu(d).filter((x) => !x.saute);
+      const points = [...new Set(els.map((x) => (x.type === 'rdv' ? catRdv(x.cat) : cat(x.cat)).coul))].slice(0, 4).map((c) => `<i style="background:${c}"></i>`).join('');
       const haut = d === auj ? 'Auj.' : d === plusJours(auj, 1) ? 'Dem.' : ABR[jourDe(d)];
       return `<button data-jour="${d}" aria-pressed="${d === jourVu}" class="${conge ? 'conge' : ''}" aria-label="${dateLongue(d)}">
         <span class="j">${haut}</span><span class="n">${Number(d.slice(8))}</span><span class="points">${points}</span></button>`;
     }).join('');
 
-    const blocs = blocsDu(jourVu);
+    const els = elementsDu(jourVu);
     const { periode: p } = trameDu(jourVu);
     const maintenant = new Date(); const mn = maintenant.getHours() * 60 + maintenant.getMinutes();
     const estAuj = jourVu === auj;
+    const actifs = els.filter((x) => !x.saute);
     let corps = '';
-    if (!trames.length) {
+    if (!trames.length && !els.length) {
       corps = `<div class="encadre"><strong>Bienvenue dans Tempo</strong>
         <p>Commence par ta trame, la semaine qui revient. Tu peux la reprendre de <strong>Ma trame</strong> (avec son bouton d’export), ou la dessiner ici.</p>
         <div class="rangee"><button class="btn plein" id="allerImport">Reprendre de Ma trame</button><button class="btn" id="allerTrames">Dessiner ma trame</button></div></div>`;
-    } else if (p && !p.trame) {
-      corps = `<div class="vide"><strong>${esc(p.nom || 'Congé')}</strong><br>Rien dans la trame ce jour-là.</div>`;
-    } else if (!blocs.length) {
-      corps = `<div class="vide">Rien dans la trame ce jour-là.</div>`;
+    } else if (!els.length) {
+      corps = p && !p.trame ? `<div class="vide"><strong>${esc(p.nom || 'Congé')}</strong><br>Rien de prévu ce jour-là.</div>` : `<div class="vide">Rien de prévu ce jour-là.</div>`;
     } else {
       const morceaux = [];
-      let fin = null, ligneMaintenant = !estAuj;
+      let fin = null, ligneMaintenant = !estAuj, ensuiteMarque = false;
       const placerMaintenant = (avant) => {
         if (!ligneMaintenant && mn < avant) { morceaux.push(`<div class="maintenant" aria-label="Maintenant"><span>${heure(mn)}</span><span></span></div>`); ligneMaintenant = true; }
       };
-      let ensuiteMarque = false;
-      blocs.forEach((b) => {
-        if (fin !== null && b.deb > fin) { placerMaintenant(b.deb); morceaux.push(`<div class="libre"><span></span><span>Libre ${duree(b.deb - fin)}</span></div>`); }
-        placerMaintenant(b.deb);
-        const c = cat(b.cat);
-        const etat = !estAuj ? '' : b.fin <= mn ? 'passe' : b.deb <= mn ? 'encours' : '';
+      els.forEach((x) => {
+        if (!x.saute) {
+          if (fin !== null && x.deb > fin) { placerMaintenant(x.deb); morceaux.push(`<div class="libre"><span></span><span>Libre ${duree(x.deb - fin)}</span></div>`); }
+          placerMaintenant(x.deb);
+        }
+        const c = x.type === 'rdv' ? catRdv(x.cat) : cat(x.cat);
+        const etat = x.saute || !estAuj ? '' : x.fin <= mn ? 'passe' : x.deb <= mn ? 'encours' : '';
         let etiquette = '';
         if (etat === 'encours') etiquette = '<div class="etiquette">En cours</div>';
-        else if (estAuj && !etat && !ensuiteMarque) { etiquette = '<div class="etiquette">Ensuite</div>'; ensuiteMarque = true; }
-        if (etat === 'encours') ensuiteMarque = false;
-        morceaux.push(`<div class="bloc ${etat}"><div class="h">${heure(b.deb)}</div>
-          <div class="corps" style="--c:${c.coul};background:${pale(c.coul)}">${etiquette}<div class="nom">${esc(c.nom)}</div>
-          <div class="duree">${heure(b.deb)} – ${heure(b.fin)} · ${duree(b.fin - b.deb)}</div></div></div>`);
-        fin = fin === null ? b.fin : Math.max(fin, b.fin);
+        else if (estAuj && !etat && !x.saute && !ensuiteMarque) { etiquette = '<div class="etiquette">Ensuite</div>'; ensuiteMarque = true; }
+        // Un rendez-vous qui tombe pendant un bloc de la trame : on le signale.
+        const pendant = x.type === 'rdv' ? actifs.filter((y) => y.type === 'trame' && y.deb < x.fin && x.deb < y.fin).map((y) => cat(y.cat).nom) : [];
+        const ouvert = ouvertId === x.id;
+        const actions = !ouvert ? '' : x.type === 'trame'
+          ? `<div class="actions"><button class="btn petit" data-sauter="${x.id}">${x.saute ? 'Rétablir ce jour-là' : 'Pas ce jour-là'}</button></div>`
+          : `<div class="actions"><button class="btn petit" data-modrdv="${x.id}">Modifier</button><button class="btn petit danger" data-supprrdv="${x.id}">Supprimer</button></div>`;
+        const style = x.type === 'rdv' ? `--c:${c.coul};background:var(--carte);border:2px solid ${c.coul}` : `--c:${c.coul};background:${pale(c.coul)}`;
+        morceaux.push(`<div class="bloc ${etat} ${x.saute ? 'saute' : ''} ${x.type}"><div class="h">${heure(x.deb)}</div>
+          <button class="corps" data-ouvrir="${x.id}" style="${style}" aria-expanded="${ouvert}">${etiquette}
+          <div class="nom">${esc(x.type === 'rdv' ? x.titre : c.nom)}${x.saute ? ' <span class="mention-saute">pas ce jour-là</span>' : ''}</div>
+          <div class="duree">${heure(x.deb)} – ${heure(x.fin)} · ${duree(x.fin - x.deb)}${x.type === 'rdv' && x.cat ? ` · ${esc(c.nom)}` : ''}</div>
+          ${pendant.length ? `<div class="pendant">pendant ${esc(pendant.join(', '))}</div>` : ''}</button>${actions}</div>`);
+        if (!x.saute) fin = fin === null ? x.fin : Math.max(fin, x.fin);
       });
-      if (!ligneMaintenant && estAuj && mn >= fin) morceaux.push(`<div class="maintenant"><span>${heure(mn)}</span><span></span></div>`);
+      if (!ligneMaintenant && estAuj && fin !== null && mn >= fin) morceaux.push(`<div class="maintenant"><span>${heure(mn)}</span><span></span></div>`);
       corps = `<div class="journee">${morceaux.join('')}</div>`;
     }
+
+    const e = edition?.type === 'rdv' ? edition : null;
+    const formRdv = !e ? `<button class="btn" id="nouveauRdv">+ Rendez-vous</button>` : `<div class="formulaire" id="formRdv">
+        <strong>${e.id ? 'Modifier le rendez-vous' : 'Nouveau rendez-vous'}</strong>
+        <label class="champ">Quoi <input type="text" id="titreRdv" maxlength="60" value="${esc(e.titre || '')}" placeholder="Dentiste, café avec Marie…"></label>
+        <label class="champ">Date ${boite('dateRdv', 'date', e.date)}</label>
+        <div class="deux"><label class="champ">Début ${boite('debRdv', 'time', hhmm(e.deb))}</label><label class="champ">Fin ${boite('finRdv', 'time', hhmm(e.fin))}</label></div>
+        <label class="champ">Catégorie <select id="catRdv"><option value="">Rendez-vous</option>${categories.map((c) => `<option value="${c.id}" ${c.id === e.cat ? 'selected' : ''}>${esc(c.nom)}</option>`).join('')}</select></label>
+        <div class="rangee"><button class="btn plein" id="enregRdv">${e.id ? 'Enregistrer' : 'Ajouter'}</button><button class="btn discret" id="annulerRdv">Annuler</button></div>
+      </div>`;
 
     $app.innerHTML = `
       <div class="entete"><div><h1>Tempo</h1><div class="sous">${esc(libellePeriode(jourVu))}</div></div></div>
@@ -277,9 +320,10 @@
       <div class="pile">
         <h2>${jourVu === auj ? 'Aujourd’hui' : jourVu === plusJours(auj, 1) ? 'Demain' : ''}${jourVu === auj || jourVu === plusJours(auj, 1) ? `<span class="doux" style="font-family:'Atkinson Hyperlegible',system-ui,sans-serif;font-size:17px;font-weight:400"> · ${dateLongue(jourVu).toLowerCase()}</span>` : dateLongue(jourVu)}</h2>
         ${corps}
+        ${formRdv}
         <div class="menu">
           <button class="btn discret" id="allerTrames">Mes trames</button>
-          <button class="btn discret" id="allerPeriodes">Mes périodes</button>
+          <button class="btn discret" id="allerPeriodes">Mon calendrier</button>
         </div>
         <button class="btn secondaire" id="allerDonnees">Ce que Tempo garde · sauvegarde</button>
         <p class="pied">Tempo · version ${VERSION}</p>
@@ -290,11 +334,45 @@
     if (choisi) { const r = choisi.getBoundingClientRect(), br = b.getBoundingClientRect(); if (r.right > br.right) b.scrollLeft += r.right - br.right + 16; else if (r.left < br.left) b.scrollLeft -= br.left - r.left + 16; }
     defil = b.scrollLeft;
     b.addEventListener('scroll', () => { defil = b.scrollLeft; }, { passive: true });
-    b.querySelectorAll('[data-jour]').forEach((x) => x.onclick = () => { jourVu = x.dataset.jour; afficher(); });
-    $app.querySelectorAll('#allerTrames').forEach((x) => x.onclick = () => { ecran = 'trames'; afficher(); window.scrollTo(0, 0); });
-    document.getElementById('allerPeriodes').onclick = () => { ecran = 'periodes'; afficher(); window.scrollTo(0, 0); };
-    document.getElementById('allerDonnees').onclick = () => { ecran = 'donnees'; afficher(); window.scrollTo(0, 0); };
+    b.querySelectorAll('[data-jour]').forEach((x) => x.onclick = () => { jourVu = x.dataset.jour; ouvertId = null; if (edition?.type === 'rdv' && !edition.id) edition.date = jourVu; afficher(); });
+    $app.querySelectorAll('#allerTrames').forEach((x) => x.onclick = () => { ecran = 'trames'; edition = null; afficher(); window.scrollTo(0, 0); });
+    document.getElementById('allerPeriodes').onclick = () => { ecran = 'periodes'; edition = null; afficher(); window.scrollTo(0, 0); };
+    document.getElementById('allerDonnees').onclick = () => { ecran = 'donnees'; edition = null; afficher(); window.scrollTo(0, 0); };
     const ai = document.getElementById('allerImport'); if (ai) ai.onclick = () => { ecran = 'donnees'; afficher(); };
+    // Toucher un élément montre ses actions ; le retoucher les cache.
+    $app.querySelectorAll('[data-ouvrir]').forEach((x) => x.onclick = () => { ouvertId = ouvertId === x.dataset.ouvrir ? null : x.dataset.ouvrir; afficher(); });
+    $app.querySelectorAll('[data-sauter]').forEach((x) => x.onclick = () => {
+      const k = x.dataset.sauter + '|' + jourVu;
+      exceptions = exceptions.includes(k) ? exceptions.filter((y) => y !== k) : [...exceptions, k];
+      ouvertId = null; tout(); afficher();
+    });
+    $app.querySelectorAll('[data-supprrdv]').forEach((x) => x.onclick = () => {
+      evenements = evenements.filter((y) => y.id !== x.dataset.supprrdv); ouvertId = null; tout(); dire('Rendez-vous supprimé'); afficher();
+    });
+    $app.querySelectorAll('[data-modrdv]').forEach((x) => x.onclick = () => {
+      edition = { type: 'rdv', ...evenements.find((y) => y.id === x.dataset.modrdv) }; ouvertId = null; afficher();
+      document.getElementById('formRdv').scrollIntoView({ block: 'center' });
+    });
+    const nr = document.getElementById('nouveauRdv');
+    if (nr) nr.onclick = () => {
+      const deb = estAuj ? Math.min(23 * 60, Math.ceil((mn + 1) / 30) * 30) : 10 * 60;
+      edition = { type: 'rdv', id: null, date: jourVu, titre: '', deb, fin: Math.min(23 * 60 + 59, deb + 60), cat: null }; afficher();
+      document.getElementById('formRdv').scrollIntoView({ block: 'center' }); document.getElementById('titreRdv').focus();
+    };
+    if (e) {
+      document.getElementById('annulerRdv').onclick = () => { edition = null; afficher(); };
+      document.getElementById('enregRdv').onclick = () => {
+        const titre = document.getElementById('titreRdv').value.trim();
+        const date = document.getElementById('dateRdv').value;
+        const deb = minutes(document.getElementById('debRdv').value || '00:00'), fin = minutes(document.getElementById('finRdv').value || '00:00');
+        if (!titre) return dire('Dis en un mot de quoi il s’agit');
+        if (!date) return dire('Choisis la date');
+        if (fin <= deb) return dire('La fin doit venir après le début');
+        const v = { date, titre, deb, fin, cat: document.getElementById('catRdv').value || null };
+        if (e.id) Object.assign(evenements.find((y) => y.id === e.id), v); else evenements.push({ id: nid(), ...v });
+        edition = null; jourVu = date < aujourdhui() ? jourVu : date; tout(); dire(e.id ? 'Rendez-vous modifié' : 'Rendez-vous ajouté'); afficher();
+      };
+    }
   }
 
   /* ===== Mini-semaine ===== */
@@ -310,7 +388,7 @@
     $app.innerHTML = `${retour()}
       <div class="pile">
         <h2 class="titre-ecran">Mes trames</h2>
-        <p class="doux">Ce qui revient chaque semaine, sans date. Une trame par type de période${NB}: périodes de cours, périodes sans cours… C’est dans «${NB}Mes périodes${NB}» que tu dis laquelle s’applique quand.</p>
+        <p class="doux">Ce qui revient chaque semaine, sans date. Une trame par type de période${NB}: périodes de cours, périodes sans cours… C’est dans «${NB}Mon calendrier${NB}» que tu dis laquelle s’applique quand.</p>
         ${trames.map((t) => `<button class="carte" data-trame="${t.id}" style="text-align:left;cursor:pointer">
           <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><h3>${esc(t.nom)}</h3><span class="doux" style="font-size:15px">${t.blocs.length} bloc${t.blocs.length > 1 ? 's' : ''}</span></div>
           ${mini(t)}</button>`).join('')}
@@ -413,7 +491,7 @@
       trames.push(copie); tout(); trameOuverte = copie.id; afficher(); window.scrollTo(0, 0); dire('Copie créée : renomme-la');
     };
     document.getElementById('supprTrame').onclick = () => {
-      if (periodes.some((p) => p.trame === t.id)) return dire('Cette trame est utilisée dans « Mes périodes »');
+      if (periodes.some((p) => p.trame === t.id)) return dire('Cette trame est utilisée dans « Mon calendrier »');
       if (!confirm(`Supprimer la trame «${NB}${t.nom}${NB}» ?`)) return;
       trames = trames.filter((x) => x.id !== t.id); if (parDefaut === t.id) parDefaut = trames[0]?.id || null;
       tout(); ecran = 'trames'; afficher();
@@ -442,7 +520,7 @@
     if (s) s.onclick = () => { t.blocs = t.blocs.filter((b) => b.id !== edition.id); edition = null; tout(); afficher(); };
   }
 
-  /* ===== Mes périodes ===== */
+  /* ===== Mon calendrier (les périodes) ===== */
   function ecranPeriodes() {
     const auj = aujourdhui();
     const tri = periodes.slice().sort((a, b) => a.du.localeCompare(b.du));
@@ -450,7 +528,7 @@
     const e = edition?.type === 'periode' ? edition : null;
     $app.innerHTML = `${retour()}
       <div class="pile">
-        <h2 class="titre-ecran">Mes périodes</h2>
+        <h2 class="titre-ecran">Mon calendrier</h2>
         <p class="doux">Quelle trame s’applique quand. Un congé, c’est une période sans trame. Quand deux périodes se chevauchent, la plus récemment ajoutée l’emporte${NB}: pratique pour un congé au milieu d’une période de cours.</p>
         <div class="carte">${tri.length ? tri.map((p) => `<div class="ligne" style="${p.au < auj ? 'opacity:.55' : ''}">
           <span class="pastille" style="background:${p.trame ? 'var(--bleu)' : 'transparent'};${p.trame ? '' : 'border:2px dashed var(--bord-fort)'}"></span>
@@ -488,7 +566,7 @@
     $app.innerHTML = `${retour()}
       <div class="pile">
         <h2 class="titre-ecran">Ce que Tempo garde</h2>
-        <p>Tout reste <strong>sur ce téléphone</strong>${NB}: tes catégories, tes trames et tes périodes. Tempo n’a pas de serveur, ne crée pas de compte, ne lit pas ton agenda et n’envoie rien à personne.</p>
+        <p>Tout reste <strong>sur ce téléphone</strong>${NB}: tes catégories, tes trames, ton calendrier et tes rendez-vous. Tempo n’a pas de serveur, ne crée pas de compte, ne lit pas ton agenda et n’envoie rien à personne.</p>
         <p class="doux">Sur iPhone, l’appli installée sur l’écran d’accueil a son propre rangement, séparé de Safari et des autres applis. D’où l’importance de la sauvegarde.</p>
         <div class="encadre"><h3>Reprendre de Ma trame</h3>
           <p>Dans Ma trame, utilise son bouton d’export pour enregistrer un fichier, puis choisis-le ici. Tes catégories et tes modèles arrivent tels quels, chaque modèle devient une trame.</p>
@@ -505,7 +583,7 @@
     document.getElementById('impMT').onclick = () => { mode = 'matrame'; f.click(); };
     document.getElementById('imp').onclick = () => { mode = 'tempo'; f.click(); };
     document.getElementById('exp').onclick = () => {
-      const paquet = { app: 'tempo', format: 1, exporte: new Date().toISOString(), categories, trames, periodes, parDefaut };
+      const paquet = { app: 'tempo', format: 1, exporte: new Date().toISOString(), categories, trames, periodes, parDefaut, evenements, exceptions };
       const url = URL.createObjectURL(new Blob([JSON.stringify(paquet, null, 2)], { type: 'application/json' }));
       const a = document.createElement('a'); a.href = url; a.download = `tempo-${aujourdhui()}.json`; document.body.appendChild(a); a.click(); a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 2000); dire('Sauvegarde enregistrée');
@@ -541,6 +619,7 @@
     if (!p || p.app !== 'tempo') return dire('Ce fichier n’est pas une sauvegarde de Tempo');
     if (!confirm('Remplacer tout ce qui est dans Tempo par cette sauvegarde ?')) return;
     categories = p.categories || []; trames = p.trames || []; periodes = p.periodes || []; parDefaut = p.parDefaut || null;
+    evenements = p.evenements || []; exceptions = p.exceptions || [];
     tout(); dire('Sauvegarde restaurée'); ecran = 'jour'; afficher();
   }
 
