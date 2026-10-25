@@ -94,6 +94,9 @@
   .bloc.saute .nom { text-decoration: line-through; color: var(--doux); }
   .mention-saute { font-size: 13px; font-weight: 700; color: var(--violet); text-decoration: none; display: inline-block; margin-left: 4px; }
   .pendant { font-size: 14px; color: var(--violet); font-weight: 700; margin-top: 2px; }
+  .conflit { font-size: 14px; color: var(--violet); font-weight: 700; margin-top: 4px; background: rgba(107,63,160,.10); border-radius: 6px; padding: 2px 8px; display: inline-block; }
+  .jours .alerte { position: absolute; top: 4px; right: 6px; color: var(--violet); font-size: 13px; font-weight: 700; }
+  .jours button { position: relative; }
   .actions { grid-column: 2; display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
   .bloc.encours .corps { border: 3px solid var(--bleu-clair); }
   .etiquette { font-size: 13px; font-weight: 700; color: var(--bleu); text-transform: uppercase; letter-spacing: 0.5px; }
@@ -151,7 +154,7 @@
 <script>
 (() => {
   'use strict';
-  const VERSION = '1.12';
+  const VERSION = '1.13';
   const P = 'tempo.';
   const NB = ' ';
   const FENETRE = 14;              // jours affichés dans la rangée
@@ -298,8 +301,10 @@
       const els = elementsDu(d).filter((x) => !x.saute);
       const points = [...new Set(els.map((x) => couleurDe(x).coul))].slice(0, 4).map((c) => `<i style="background:${c}"></i>`).join('');
       const haut = d === auj ? 'Auj.' : d === plusJours(auj, 1) ? 'Dem.' : ABR[jourDe(d)];
-      return `<button data-jour="${d}" aria-pressed="${d === jourVu}" class="${conge ? 'conge' : ''}" aria-label="${dateLongue(d)}">
-        <span class="j">${haut}</span><span class="n">${Number(d.slice(8))}</span><span class="points">${points}</span></button>`;
+      const arrive = els.filter((x) => x.type !== 'trame');
+      const conflit = arrive.some((x, i) => arrive.some((y, k) => k > i && y.deb < x.fin && x.deb < y.fin));
+      return `<button data-jour="${d}" aria-pressed="${d === jourVu}" class="${conge ? 'conge' : ''}" aria-label="${dateLongue(d)}${conflit ? ', deux rendez-vous en même temps' : ''}">
+        ${conflit ? '<span class="alerte" aria-hidden="true">⚠</span>' : ''}<span class="j">${haut}</span><span class="n">${Number(d.slice(8))}</span><span class="points">${points}</span></button>`;
     }).join('');
 
     const els = elementsDu(jourVu);
@@ -331,7 +336,9 @@
         if (etat === 'encours') etiquette = '<div class="etiquette">En cours</div>';
         else if (estAuj && !etat && !x.saute && !ensuiteMarque) { etiquette = '<div class="etiquette">Ensuite</div>'; ensuiteMarque = true; }
         // Un rendez-vous qui tombe pendant un bloc de la trame : on le signale.
-        const pendant = x.type !== 'trame' ? actifs.filter((y) => y.type === 'trame' && y.deb < x.fin && x.deb < y.fin).map((y) => cat(y.cat).nom) : [];
+        const pendant = x.type !== 'trame' && !x.saute ? actifs.filter((y) => y.type === 'trame' && y.deb < x.fin && x.deb < y.fin).map((y) => cat(y.cat).nom) : [];
+        // Deux choses qui arrivent en même temps (rendez-vous, séances Corsia) : on le signale sur chacune.
+        const enMemeTemps = x.type !== 'trame' && !x.saute ? actifs.filter((y) => y.type !== 'trame' && y.id !== x.id && y.deb < x.fin && x.deb < y.fin).map((y) => y.titre) : [];
         const ouvert = ouvertId === x.id;
         const actions = !ouvert ? '' : x.type !== 'rdv'
           ? `<div class="actions"><button class="btn petit" data-sauter="${x.id}">${x.saute ? 'Rétablir ce jour-là' : 'Pas ce jour-là'}</button></div>`
@@ -341,6 +348,7 @@
           <button class="corps" data-ouvrir="${x.id}" style="${style}" aria-expanded="${ouvert}">${etiquette}
           <div class="nom">${esc(x.type === 'trame' ? c.nom : x.titre)}${x.saute ? ' <span class="mention-saute">pas ce jour-là</span>' : ''}</div>
           <div class="duree">${heure(x.deb)} – ${heure(x.fin)} · ${duree(x.fin - x.deb)}${x.type === 'rdv' && x.cat ? ` · ${esc(c.nom)}` : ''}${x.type === 'corsia' ? ' · Corsia' : ''}</div>
+          ${enMemeTemps.length ? `<div class="conflit">⚠${NB}en même temps ${/^[aeiouyhàâéèêëîïôûü]/i.test(enMemeTemps[0]) ? 'qu’' : 'que '}${esc(enMemeTemps.join(', '))}</div>` : ''}
           ${pendant.length ? `<div class="pendant">pendant ${esc(pendant.join(', '))}</div>` : ''}</button>${actions}</div>`);
         if (!x.saute) fin = fin === null ? x.fin : Math.max(fin, x.fin);
       });
