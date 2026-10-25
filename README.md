@@ -8,14 +8,14 @@ Un agenda pensé autrement, pour une seule personne, qui sépare **ce qui revien
 
 1. **Séparer ce qui revient de ce qui arrive.** La trame (sans date, stable) en fond ; la semaine réelle par-dessus.
 2. **L'habillage de Corsia** : mêmes couleurs (palette des catégories accordée à Corsia, le bleu en tête), mêmes polices, même sobriété.
-3. **À l'ouverture, la journée en cours.** La semaine est à un geste, avec la rangée de jours en haut.
+3. **À l'ouverture, la journée en cours.** La semaine est à un geste, avec la rangée de jours en bas de l'écran, à portée de pouce.
 
 ## Comment ça marche
 
 - **Mes trames** : une trame par type de période (périodes de cours, sans cours…). Chaque trame est une semaine type faite de blocs : un jour, une catégorie, une heure de début et de fin.
 - **Mon calendrier** : les périodes, c'est-à-dire quelle trame s'applique du … au …. Un congé est une période sans trame. Quand deux périodes se chevauchent, la plus récemment ajoutée l'emporte (un congé au milieu d'une période de cours, par exemple). En dehors des périodes, une trame par défaut, ou rien.
-- **Ma journée** (écran d'ouverture) : les blocs de la trame en teinte pâle et les rendez-vous en carte pleine, avec « En cours », « Ensuite », le temps libre entre deux blocs et une ligne violette pour l'heure qu'il est. En haut, les 14 prochains jours, avec un point par catégorie et un cadre en pointillés pour les congés.
-- **Rendez-vous** (« + Rendez-vous » sur Ma journée) : un titre, une date, une heure de début et de fin, une catégorie facultative. Quand un rendez-vous tombe pendant un bloc de la trame, la carte l'indique (« pendant Club »). Toucher un rendez-vous permet de le modifier ou de le supprimer.
+- **Ma journée** (écran d'ouverture) : les blocs de la trame en teinte pâle et les rendez-vous en carte pleine, avec « En cours », « Ensuite », le temps libre entre deux blocs et une ligne violette pour l'heure qu'il est. En bas de l'écran, toujours visibles, les 14 prochains jours, avec un point par catégorie et un cadre en pointillés pour les congés.
+- **Rendez-vous** (« + Rendez-vous » sur Ma journée) : un titre, une date, une heure de début et de fin, une catégorie facultative. Quand un rendez-vous tombe pendant un bloc de la trame, la carte l'indique (« pendant Club »). Toucher un rendez-vous permet de le modifier ou de le supprimer. Pendant la saisie, ce qui est tapé reste en place, même si on change de jour ou quitte l'appli un instant.
 - **Plus tard** (sous Ma journée, replié par défaut) : les rendez-vous au-delà des 14 jours de la rangée, triés par date, pour vérifier ce qui est noté, les modifier ou les supprimer.
 - **Chevauchements** : quand deux rendez-vous (ou un rendez-vous et une séance Corsia) se chevauchent, chacun l'indique en violet (« ⚠ en même temps que … ») et le jour porte un petit ⚠ dans la rangée.
 - **Exceptions** : toucher un bloc de la trame, puis « Pas ce jour-là » ; il apparaît barré ce jour-là seulement, et la trame reste intacte.

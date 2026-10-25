@@ -65,7 +65,13 @@
   .rangee .btn { flex: 1 1 140px; }
 
   /* Rangée de jours, accrochée en haut */
-  .collant { position: sticky; top: env(safe-area-inset-top); z-index: 5; background: var(--creme); margin: 0 -16px; padding: 6px 16px; }
+  /* La rangée de jours, fixée en bas de l'écran, à portée de pouce. */
+  .collant { position: fixed; left: 0; right: 0; bottom: 0; z-index: 5; background: var(--creme);
+             border-top: 1px solid var(--bord); box-shadow: 0 -4px 12px rgba(43,33,24,.06);
+             padding: 10px 16px calc(10px + env(safe-area-inset-bottom)); }
+  .collant .jours { max-width: 520px; margin: 0 auto; padding: 0; }
+  body.avec-rangee main { padding-bottom: calc(150px + env(safe-area-inset-bottom)); }
+  body.avec-rangee .message { bottom: calc(136px + env(safe-area-inset-bottom)); }
   .jours { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; margin: 0 -16px; padding: 0 16px; }
   .jours::-webkit-scrollbar { display: none; }
   .jours button { flex: none; width: 74px; min-height: 96px; padding: 12px 4px; justify-content: center; gap: 4px; border-radius: 12px; border: 1.5px solid var(--bord-fort);
@@ -154,7 +160,7 @@
 <script>
 (() => {
   'use strict';
-  const VERSION = '1.13';
+  const VERSION = '1.15';
   const P = 'tempo.';
   const NB = ' ';
   const FENETRE = 14;              // jours affichés dans la rangée
@@ -235,6 +241,7 @@
   let plusTardOuvert = false;  // « Plus tard » replié à chaque ouverture de Tempo
 
   function afficher() {
+    document.body.classList.toggle('avec-rangee', ecran === 'jour');
     ({ jour: ecranJour, trames: ecranTrames, trame: ecranTrame, periodes: ecranPeriodes, donnees: ecranDonnees })[ecran]();
     majBoites();
   }
@@ -429,6 +436,16 @@
       document.getElementById('formRdv').scrollIntoView({ block: 'center' }); document.getElementById('titreRdv').focus();
     };
     if (e) {
+      // Ce qui est tapé est gardé au fur et à mesure : un redessin ne l'efface jamais.
+      const garder = () => {
+        e.titre = document.getElementById('titreRdv').value;
+        e.date = document.getElementById('dateRdv').value || e.date;
+        const d = document.getElementById('debRdv').value, f = document.getElementById('finRdv').value;
+        if (d) e.deb = minutes(d); if (f) e.fin = minutes(f);
+        e.cat = document.getElementById('catRdv').value || null;
+      };
+      const fr = document.getElementById('formRdv');
+      fr.addEventListener('input', garder); fr.addEventListener('change', garder);
       document.getElementById('annulerRdv').onclick = () => { edition = null; afficher(); };
       const sf = document.getElementById('supprRdvForm');
       if (sf) sf.onclick = () => {
@@ -756,15 +773,17 @@
   document.addEventListener('input', (e) => { if (e.target.closest('.boite')) majBoites(); });
   document.addEventListener('change', (e) => { if (e.target.closest('.boite')) majBoites(); });
 
-  // L'heure avance : on redessine la journée chaque minute, et au retour sur l'appli.
-  setInterval(() => { if (ecran === 'jour' && !document.hidden) afficher(); }, 60000);
-  document.addEventListener('visibilitychange', () => { if (!document.hidden && ecran === 'jour') afficher(); });
+  // L'heure avance : on redessine la journée chaque minute, et au retour sur l'appli,
+  // sauf pendant la saisie d'un rendez-vous (on ne dérange pas quelqu'un qui tape).
+  const peutRedessiner = () => ecran === 'jour' && !edition;
+  setInterval(() => { if (peutRedessiner() && !document.hidden) afficher(); }, 60000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && peutRedessiner()) afficher(); });
 
   try { navigator.storage?.persist?.(); } catch {}
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then((r) => r.update()).catch(() => {});
   afficher();
-  majCorsia().then((change) => { if (change && ecran === 'jour') afficher(); });
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) majCorsia().then((c) => { if (c && ecran === 'jour') afficher(); }); });
+  majCorsia().then((change) => { if (change && peutRedessiner()) afficher(); });
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) majCorsia().then((c) => { if (c && peutRedessiner()) afficher(); }); });
 })();
 </script>
 </body>
