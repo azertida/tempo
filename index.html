@@ -68,15 +68,15 @@
   .collant { position: sticky; top: env(safe-area-inset-top); z-index: 5; background: var(--creme); margin: 0 -16px; padding: 6px 16px; }
   .jours { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; margin: 0 -16px; padding: 0 16px; }
   .jours::-webkit-scrollbar { display: none; }
-  .jours button { flex: none; width: 60px; min-height: 66px; padding: 6px 4px; border-radius: 12px; border: 1.5px solid var(--bord-fort);
+  .jours button { flex: none; width: 74px; min-height: 80px; padding: 8px 4px; border-radius: 12px; border: 1.5px solid var(--bord-fort);
                   background: var(--carte); display: flex; flex-direction: column; align-items: center; gap: 2px; line-height: 1.15; }
-  .jours .j { font-weight: 700; font-size: 15px; }
-  .jours .n { font-size: 13px; color: var(--doux); }
-  .jours .points { display: flex; gap: 3px; min-height: 8px; margin-top: 2px; }
-  .jours .points i { width: 7px; height: 7px; border-radius: 50%; display: block; }
+  .jours .j { font-weight: 700; font-size: 16px; }
+  .jours .n { font-size: 15px; color: var(--doux); }
+  .jours .points { display: flex; gap: 4px; min-height: 10px; margin-top: 4px; }
+  .jours .points i { width: 9px; height: 9px; border-radius: 50%; display: block; }
   .jours button.conge { border-style: dashed; background: transparent; }
   /* Jour choisi : épais contour bleu clair sur le fond habituel, pour que les points gardent leur couleur. */
-  .jours button[aria-pressed="true"] { border: 3px solid var(--bleu-clair); padding: 4.5px 2.5px; }
+  .jours button[aria-pressed="true"] { border: 3px solid var(--bleu-clair); padding: 6.5px 2.5px; }
 
   /* La journée */
   .journee { display: flex; flex-direction: column; gap: 8px; }
@@ -151,7 +151,7 @@
 <script>
 (() => {
   'use strict';
-  const VERSION = '1.9';
+  const VERSION = '1.11';
   const P = 'tempo.';
   const NB = ' ';
   const FENETRE = 14;              // jours affichés dans la rangée
@@ -356,6 +356,7 @@
         <div class="deux"><label class="champ">Début ${boite('debRdv', 'time', hhmm(e.deb))}</label><label class="champ">Fin ${boite('finRdv', 'time', hhmm(e.fin))}</label></div>
         <label class="champ">Catégorie <select id="catRdv"><option value="">Rendez-vous</option>${categories.map((c) => `<option value="${c.id}" ${c.id === e.cat ? 'selected' : ''}>${esc(c.nom)}</option>`).join('')}</select></label>
         <div class="rangee"><button class="btn plein" id="enregRdv">${e.id ? 'Enregistrer' : 'Ajouter'}</button><button class="btn discret" id="annulerRdv">Annuler</button></div>
+        ${e.id ? '<button class="btn danger" id="supprRdvForm">Supprimer ce rendez-vous</button>' : ''}
       </div>`;
 
     // Plus tard : les rendez-vous au-delà de la rangée de jours, pour vérifier ce qui est noté.
@@ -403,6 +404,8 @@
       ouvertId = null; tout(); afficher();
     });
     $app.querySelectorAll('[data-supprrdv]').forEach((x) => x.onclick = () => {
+      const r = evenements.find((y) => y.id === x.dataset.supprrdv);
+      if (!confirm(`Supprimer «${NB}${r?.titre || 'ce rendez-vous'}${NB}» ?`)) return;
       evenements = evenements.filter((y) => y.id !== x.dataset.supprrdv); ouvertId = null; tout(); dire('Rendez-vous supprimé'); afficher();
     });
     $app.querySelectorAll('[data-modrdv]').forEach((x) => x.onclick = () => {
@@ -419,6 +422,11 @@
     };
     if (e) {
       document.getElementById('annulerRdv').onclick = () => { edition = null; afficher(); };
+      const sf = document.getElementById('supprRdvForm');
+      if (sf) sf.onclick = () => {
+        if (!confirm(`Supprimer «${NB}${e.titre}${NB}» ?`)) return;
+        evenements = evenements.filter((y) => y.id !== e.id); edition = null; tout(); dire('Rendez-vous supprimé'); afficher();
+      };
       document.getElementById('enregRdv').onclick = () => {
         const titre = document.getElementById('titreRdv').value.trim();
         const date = document.getElementById('dateRdv').value;
