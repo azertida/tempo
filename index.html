@@ -151,7 +151,7 @@
 <script>
 (() => {
   'use strict';
-  const VERSION = '1.7';
+  const VERSION = '1.8';
   const P = 'tempo.';
   const NB = ' ';
   const FENETRE = 14;              // jours affichés dans la rangée
@@ -357,6 +357,14 @@
         <div class="rangee"><button class="btn plein" id="enregRdv">${e.id ? 'Enregistrer' : 'Ajouter'}</button><button class="btn discret" id="annulerRdv">Annuler</button></div>
       </div>`;
 
+    // Plus tard : les rendez-vous au-delà de la rangée de jours, pour vérifier ce qui est noté.
+    const finRangee = plusJours(auj, FENETRE - 1);
+    const lointains = evenements.filter((x) => x.date > finRangee).sort((a, b) => (a.date + hhmm(a.deb)).localeCompare(b.date + hhmm(b.deb)));
+    const plusTard = !lointains.length ? '' : `<div class="carte"><h3>Plus tard</h3>
+        ${lointains.map((x) => `<div class="ligne"><span class="pastille" style="background:${catRdv(x.cat).coul}"></span>
+          <div class="texte"><b>${esc(x.titre)}</b><small>${dateLongue(x.date)}${x.date.slice(0, 4) !== auj.slice(0, 4) ? ' ' + x.date.slice(0, 4) : ''} · ${heure(x.deb)}</small></div>
+          <button class="lien" data-modrdv="${x.id}">Modifier</button></div>`).join('')}</div>`;
+
     $app.innerHTML = `
       <div class="entete"><div><h1>Tempo</h1><div class="sous">${esc(libellePeriode(jourVu))}</div></div></div>
       <div class="collant"><div class="jours" role="group" aria-label="Jours">${bande}</div></div>
@@ -364,6 +372,7 @@
         <h2>${jourVu === auj ? 'Aujourd’hui' : jourVu === plusJours(auj, 1) ? 'Demain' : ''}${jourVu === auj || jourVu === plusJours(auj, 1) ? `<span class="doux" style="font-family:'Atkinson Hyperlegible',system-ui,sans-serif;font-size:17px;font-weight:400"> · ${dateLongue(jourVu).toLowerCase()}</span>` : dateLongue(jourVu)}</h2>
         ${corps}
         ${formRdv}
+        ${plusTard}
         <div class="menu">
           <button class="btn discret" id="allerTrames">Mes trames</button>
           <button class="btn discret" id="allerPeriodes">Mon calendrier</button>
@@ -413,7 +422,7 @@
         if (fin <= deb) return dire('La fin doit venir après le début');
         const v = { date, titre, deb, fin, cat: document.getElementById('catRdv').value || null };
         if (e.id) Object.assign(evenements.find((y) => y.id === e.id), v); else evenements.push({ id: nid(), ...v });
-        edition = null; jourVu = date < aujourdhui() ? jourVu : date; tout(); dire(e.id ? 'Rendez-vous modifié' : 'Rendez-vous ajouté'); afficher();
+        edition = null; if (date >= aujourdhui() && date <= plusJours(aujourdhui(), FENETRE - 1)) jourVu = date; tout(); dire(e.id ? 'Rendez-vous modifié' : 'Rendez-vous ajouté'); afficher();
       };
     }
   }
