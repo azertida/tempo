@@ -1,6 +1,6 @@
 /* Tempo — mise en cache pour fonctionner hors connexion.
    À chaque mise à jour, augmenter CACHE_NAME pour que les téléphones reprennent les nouveaux fichiers. */
-const CACHE_NAME = 'tempo-v1.11';
+const CACHE_NAME = 'tempo-v1.12';
 const FICHIERS = ['./', './index.html', './manifest.webmanifest',
   './icones/icon-192.png', './icones/icon-512.png', './icones/apple-touch-icon.png', './icones/favicon-32.png',
   './polices/fraunces-latin-600-normal.woff2', './polices/fraunces-latin-700-normal.woff2',

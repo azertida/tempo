@@ -68,15 +68,15 @@
   .collant { position: sticky; top: env(safe-area-inset-top); z-index: 5; background: var(--creme); margin: 0 -16px; padding: 6px 16px; }
   .jours { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; margin: 0 -16px; padding: 0 16px; }
   .jours::-webkit-scrollbar { display: none; }
-  .jours button { flex: none; width: 74px; min-height: 80px; padding: 8px 4px; border-radius: 12px; border: 1.5px solid var(--bord-fort);
+  .jours button { flex: none; width: 74px; min-height: 96px; padding: 12px 4px; justify-content: center; gap: 4px; border-radius: 12px; border: 1.5px solid var(--bord-fort);
                   background: var(--carte); display: flex; flex-direction: column; align-items: center; gap: 2px; line-height: 1.15; }
-  .jours .j { font-weight: 700; font-size: 16px; }
-  .jours .n { font-size: 15px; color: var(--doux); }
+  .jours .j { font-weight: 700; font-size: 17px; }
+  .jours .n { font-size: 16px; color: var(--doux); }
   .jours .points { display: flex; gap: 4px; min-height: 10px; margin-top: 4px; }
   .jours .points i { width: 9px; height: 9px; border-radius: 50%; display: block; }
   .jours button.conge { border-style: dashed; background: transparent; }
   /* Jour choisi : épais contour bleu clair sur le fond habituel, pour que les points gardent leur couleur. */
-  .jours button[aria-pressed="true"] { border: 3px solid var(--bleu-clair); padding: 6.5px 2.5px; }
+  .jours button[aria-pressed="true"] { border: 3px solid var(--bleu-clair); padding: 10.5px 2.5px; }
 
   /* La journée */
   .journee { display: flex; flex-direction: column; gap: 8px; }
@@ -151,7 +151,7 @@
 <script>
 (() => {
   'use strict';
-  const VERSION = '1.11';
+  const VERSION = '1.12';
   const P = 'tempo.';
   const NB = ' ';
   const FENETRE = 14;              // jours affichés dans la rangée
