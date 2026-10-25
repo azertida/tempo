@@ -151,7 +151,7 @@
 <script>
 (() => {
   'use strict';
-  const VERSION = '1.8';
+  const VERSION = '1.9';
   const P = 'tempo.';
   const NB = ' ';
   const FENETRE = 14;              // jours affichés dans la rangée
@@ -229,6 +229,7 @@
   let trameOuverte = null;
   let edition = null;      // bloc, catégorie, période ou rendez-vous en cours d'édition
   let ouvertId = null;     // élément de la journée dont on montre les actions
+  let plusTardOuvert = false;  // « Plus tard » replié à chaque ouverture de Tempo
 
   function afficher() {
     ({ jour: ecranJour, trames: ecranTrames, trame: ecranTrame, periodes: ecranPeriodes, donnees: ecranDonnees })[ecran]();
@@ -360,7 +361,10 @@
     // Plus tard : les rendez-vous au-delà de la rangée de jours, pour vérifier ce qui est noté.
     const finRangee = plusJours(auj, FENETRE - 1);
     const lointains = evenements.filter((x) => x.date > finRangee).sort((a, b) => (a.date + hhmm(a.deb)).localeCompare(b.date + hhmm(b.deb)));
-    const plusTard = !lointains.length ? '' : `<div class="carte"><h3>Plus tard</h3>
+    const plusTard = !lointains.length ? '' : !plusTardOuvert
+      ? `<button class="btn secondaire" id="ouvrirPlusTard" aria-expanded="false">Plus tard · ${lointains.length} rendez-vous</button>`
+      : `<div class="carte"><div style="display:flex;justify-content:space-between;align-items:center"><h3>Plus tard</h3>
+          <button class="lien" id="ouvrirPlusTard" aria-expanded="true">Replier</button></div>
         ${lointains.map((x) => `<div class="ligne"><span class="pastille" style="background:${catRdv(x.cat).coul}"></span>
           <div class="texte"><b>${esc(x.titre)}</b><small>${dateLongue(x.date)}${x.date.slice(0, 4) !== auj.slice(0, 4) ? ' ' + x.date.slice(0, 4) : ''} · ${heure(x.deb)}</small></div>
           <button class="lien" data-modrdv="${x.id}">Modifier</button></div>`).join('')}</div>`;
@@ -405,6 +409,8 @@
       edition = { type: 'rdv', ...evenements.find((y) => y.id === x.dataset.modrdv) }; ouvertId = null; afficher();
       document.getElementById('formRdv').scrollIntoView({ block: 'center' });
     });
+    const opt = document.getElementById('ouvrirPlusTard');
+    if (opt) opt.onclick = () => { plusTardOuvert = !plusTardOuvert; afficher(); };
     const nr = document.getElementById('nouveauRdv');
     if (nr) nr.onclick = () => {
       const deb = estAuj ? Math.min(23 * 60, Math.ceil((mn + 1) / 30) * 30) : 10 * 60;
