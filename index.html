@@ -78,8 +78,9 @@
                   background: var(--carte); display: flex; flex-direction: column; align-items: center; gap: 2px; line-height: 1.15; }
   .jours .j { font-weight: 700; font-size: 17px; }
   .jours .n { font-size: 16px; color: var(--doux); }
-  .jours .points { display: flex; gap: 4px; min-height: 10px; margin-top: 4px; }
+  .jours .points { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; width: 48px; min-height: 22px; margin-top: 4px; align-content: flex-start; }
   .jours .points i { width: 9px; height: 9px; border-radius: 50%; display: block; }
+  .jours .points b { width: 9px; font-size: 10px; line-height: 9px; font-weight: 700; color: var(--doux); text-align: center; letter-spacing: -0.5px; white-space: nowrap; display: flex; justify-content: center; }
   .jours button.conge { border-style: dashed; background: transparent; }
   /* Jour choisi : épais contour bleu clair sur le fond habituel, pour que les points gardent leur couleur. */
   .jours button[aria-pressed="true"] { border: 3px solid var(--bleu-clair); padding: 10.5px 2.5px; }
@@ -160,7 +161,7 @@
 <script>
 (() => {
   'use strict';
-  const VERSION = '1.19';
+  const VERSION = '1.20';
   const P = 'tempo.';
   const NB = ' ';
   const FENETRE = 14;              // jours affichés dans la rangée
@@ -306,11 +307,14 @@
       const { periode: p } = trameDu(d);
       const conge = p && !p.trame;
       const els = elementsDu(d).filter((x) => !x.saute);
-      const points = [...new Set(els.map((x) => couleurDe(x).coul))].slice(0, 4).map((c) => `<i style="background:${c}"></i>`).join('');
+      // Un point par élément de la journée, dans l'ordre chronologique, quatre par ligne sur deux lignes ;
+      // au-delà de huit, les sept premiers et « +n ».
+      const vus = els.length > 8 ? els.slice(0, 7) : els;
+      const points = vus.map((x) => `<i style="background:${couleurDe(x).coul}"></i>`).join('') + (els.length > 8 ? `<b>+${els.length - 7}</b>` : '');
       const haut = d === auj ? 'Auj.' : d === plusJours(auj, 1) ? 'Dem.' : ABR[jourDe(d)];
       const arrive = els.filter((x) => x.type !== 'trame');
       const conflit = arrive.some((x, i) => arrive.some((y, k) => k > i && y.deb < x.fin && x.deb < y.fin));
-      return `<button data-jour="${d}" aria-pressed="${d === jourVu}" class="${conge ? 'conge' : ''}" aria-label="${dateLongue(d)}${conflit ? ', deux rendez-vous en même temps' : ''}">
+      return `<button data-jour="${d}" aria-pressed="${d === jourVu}" class="${conge ? 'conge' : ''}" aria-label="${dateLongue(d)}, ${els.length ? els.length + ' élément' + (els.length > 1 ? 's' : '') : 'rien de prévu'}${conflit ? ', deux rendez-vous en même temps' : ''}">
         ${conflit ? '<span class="alerte" aria-hidden="true">⚠</span>' : ''}<span class="j">${haut}</span><span class="n">${Number(d.slice(8))}</span><span class="points">${points}</span></button>`;
     }).join('');
 
