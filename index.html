@@ -160,7 +160,7 @@
 <script>
 (() => {
   'use strict';
-  const VERSION = '1.18';
+  const VERSION = '1.19';
   const P = 'tempo.';
   const NB = ' ';
   const FENETRE = 14;              // jours affichés dans la rangée
@@ -360,7 +360,7 @@
           ${pendant.length ? `<div class="pendant">pendant ${esc(pendant.join(', '))}</div>` : ''}</button>${actions}</div>`);
         if (!x.saute) fin = fin === null ? x.fin : Math.max(fin, x.fin);
       });
-      if (!ligneMaintenant && estAuj && fin !== null && mn >= fin) morceaux.push(`<div class="maintenant"><span>${heure(mn)}</span><span></span></div>`);
+      if (!ligneMaintenant && estAuj && fin !== null) morceaux.push(`<div class="maintenant"><span>${heure(mn)}</span><span></span></div>`);
       corps = `<div class="journee">${morceaux.join('')}</div>`;
     }
 
