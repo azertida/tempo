@@ -160,7 +160,7 @@
 <script>
 (() => {
   'use strict';
-  const VERSION = '1.17';
+  const VERSION = '1.18';
   const P = 'tempo.';
   const NB = ' ';
   const FENETRE = 14;              // jours affichés dans la rangée
@@ -334,7 +334,8 @@
       };
       els.forEach((x) => {
         if (!x.saute) {
-          if (fin !== null && x.deb > fin) { placerMaintenant(x.deb); morceaux.push(`<div class="libre"><span></span><span>Libre ${duree(x.deb - fin)}</span></div>`); }
+          // L'heure tombe dans le temps libre : la ligne se place après « Libre », juste avant ce qui suit.
+          if (fin !== null && x.deb > fin) { if (mn < fin) placerMaintenant(x.deb); morceaux.push(`<div class="libre"><span></span><span>Libre ${duree(x.deb - fin)}</span></div>`); }
           placerMaintenant(x.deb);
         }
         const c = couleurDe(x);
