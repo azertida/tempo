@@ -161,14 +161,17 @@
 <script>
 (() => {
   'use strict';
-  const VERSION = '1.20';
+  const VERSION = '1.21';
   const P = 'tempo.';
   const NB = ' ';
   const FENETRE = 14;              // jours affichés dans la rangée
   const JOURS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
   const ABR = ['Lun.', 'Mar.', 'Mer.', 'Jeu.', 'Ven.', 'Sam.', 'Dim.'];
-  // Palette accordée à Corsia, le bleu en tête.
-  const PALETTE = ['#1F4E6B', '#7AAAC9', '#E8A23A', '#6B3FA0', '#6E9E7A', '#C0643A', '#C46A8F', '#A79B8A', '#3A342E', '#9B2C1F'];
+  // Palette des catégories, accordée à Corsia, le bleu en tête.
+  // Trois couleurs ont un rôle et ne sont jamais données à une catégorie :
+  // le bleu clair (séances Corsia), le brun-noir (rendez-vous) et le violet (heure, « pendant », ⚠).
+  const PALETTE = ['#1F4E6B', '#E8A23A', '#6E9E7A', '#C0643A', '#C46A8F', '#A79B8A', '#9B2C1F'];
+  const RESERVEES = ['#7AAAC9', '#3A342E', '#6B3FA0'];
 
   /* ---------- Stockage (tout reste sur ce téléphone) ---------- */
   const lire = (k, d) => { try { const v = localStorage.getItem(P + k); return v === null ? d : JSON.parse(v); } catch { return d; } };
@@ -185,6 +188,19 @@
   // Ce qui est passé depuis plus de 60 jours s'efface tout seul.
   (() => { const d = new Date(); d.setDate(d.getDate() - 60); const limite = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     evenements = evenements.filter((e) => e.date >= limite); exceptions = exceptions.filter((k) => k.split('|')[1] >= limite); })();
+
+  // Une catégorie qui porte une couleur réservée en reçoit une libre (l'ocre d'abord).
+  function recolorer() {
+    let change = false;
+    for (const c of categories) {
+      if (!RESERVEES.includes(String(c.coul).toUpperCase())) continue;
+      const prises = categories.map((x) => String(x.coul).toUpperCase());
+      c.coul = ['#E8A23A', ...PALETTE].find((x) => !prises.includes(x)) || PALETTE[categories.indexOf(c) % PALETTE.length];
+      change = true;
+    }
+    if (change) ecrire('categories', categories);
+  }
+  recolorer();
 
   /* ---------- Outils ---------- */
   const $app = document.getElementById('app');
@@ -764,7 +780,7 @@
     if (!confirm('Remplacer tout ce qui est dans Tempo par cette sauvegarde ?')) return;
     categories = p.categories || []; trames = p.trames || []; periodes = p.periodes || []; parDefaut = p.parDefaut || null;
     evenements = p.evenements || []; exceptions = p.exceptions || []; corsia = p.corsia || null;
-    tout(); dire('Sauvegarde restaurée'); ecran = 'jour'; afficher();
+    recolorer(); tout(); dire('Sauvegarde restaurée'); ecran = 'jour'; afficher();
   }
 
   /* ---------- Champs date et heure ---------- */
