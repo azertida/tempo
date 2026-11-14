@@ -144,7 +144,7 @@
                  opacity: 0; -webkit-appearance: none; appearance: none; font-size: 16px; cursor: pointer; }
   .boite:focus-within { outline: 3px solid #E8A23A; outline-offset: 2px; }
   input:focus-visible, select:focus-visible, button:focus-visible { outline: 3px solid #E8A23A; outline-offset: 2px; }
-  .couleurs { display: flex; flex-wrap: wrap; gap: 8px; }
+  .couleurs { display: grid; grid-template-columns: repeat(6, 36px); justify-content: space-between; row-gap: 10px; max-width: 300px; }
   .couleurs button { width: 36px; height: 36px; border-radius: 50%; border: 2px solid var(--carte); box-shadow: 0 0 0 1px var(--bord-fort); }
   .couleurs button[aria-pressed="true"] { box-shadow: 0 0 0 3px var(--bleu); }
 
@@ -161,7 +161,7 @@
 <script>
 (() => {
   'use strict';
-  const VERSION = '1.23';
+  const VERSION = '1.24';
   const P = 'tempo.';
   const NB = ' ';
   const FENETRE = 14;              // jours affichés dans la rangée
