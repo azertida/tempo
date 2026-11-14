@@ -175,7 +175,7 @@
 <script>
 (() => {
   'use strict';
-  const VERSION = '1.25';
+  const VERSION = '1.26';
   const P = 'tempo.';
   const NB = ' ';
   const FENETRE = 14;              // jours affichés dans la rangée
@@ -199,12 +199,15 @@
   let exceptions = lire('exceptions', []);   // blocs de la trame sautés un jour : "idBloc|date"
   let corsia = lire('corsia', null);         // lien avec Corsia : { c, nom, h: [cours habituels], cours, inter, maj }
   let taches = lire('taches', []);           // à faire : { id, titre, date (échéance), faite (date où elle a été cochée, ou null) }
+  let mensuelles = lire('mensuelles', []);   // ce qui revient chaque mois : { id, titre, jour (1 à 31), depuis (date de création) }
+  let faitesMois = lire('faitesMois', {});   // occurrences cochées : { "idMensuelle|date": date où elle a été cochée }
   const tout = () => { ecrire('categories', categories); ecrire('trames', trames); ecrire('periodes', periodes); ecrire('parDefaut', parDefaut);
-                       ecrire('evenements', evenements); ecrire('exceptions', exceptions); ecrire('corsia', corsia); ecrire('taches', taches); };
+                       ecrire('evenements', evenements); ecrire('exceptions', exceptions); ecrire('corsia', corsia); ecrire('taches', taches); ecrire('mensuelles', mensuelles); ecrire('faitesMois', faitesMois); };
   // Ce qui est passé depuis plus de 60 jours s'efface tout seul.
   (() => { const d = new Date(); d.setDate(d.getDate() - 60); const limite = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     evenements = evenements.filter((e) => e.date >= limite); exceptions = exceptions.filter((k) => k.split('|')[1] >= limite);
-    taches = taches.filter((t) => !t.faite || t.date >= limite); })();   // une tâche non faite ne s'efface jamais
+    taches = taches.filter((t) => !t.faite || t.date >= limite);
+    faitesMois = Object.fromEntries(Object.entries(faitesMois).filter(([k]) => k.split('|')[1] >= limite)); })();   // une tâche non faite ne s'efface jamais
 
   // Une catégorie qui porte une couleur réservée en reçoit une libre (l'ocre d'abord).
   function recolorer() {
@@ -338,9 +341,27 @@
 
   // Les tâches d'un jour. Aujourd'hui, on y ajoute celles en retard (non faites, échéance passée)
   // et celles en retard cochées aujourd'hui, pour garder la trace de ce qui vient d'être fait.
+  // La date d'une tâche mensuelle dans un mois donné : son jour, ou le dernier jour des mois plus courts.
+  const occurrence = (m, annee, mois) => { const der = new Date(annee, mois, 0).getDate(); return `${annee}-${pad(mois)}-${pad(Math.min(m.jour, der))}`; };
+  function occurrencesMois(d) {
+    const auj = aujourdhui(), [a, mo] = d.split('-').map(Number), res = [];
+    for (const m of mensuelles) {
+      const dates = [];
+      if (occurrence(m, a, mo) === d) dates.push(d);
+      // Aujourd'hui : la dernière occurrence passée, si elle n'est pas faite (ou faite aujourd'hui). Pas d'empilement.
+      if (d === auj) {
+        let o = occurrence(m, a, mo);
+        if (o >= auj) o = mo === 1 ? occurrence(m, a - 1, 12) : occurrence(m, a, mo - 1);
+        const f = faitesMois[m.id + '|' + o];
+        if (o < auj && (!f || f === auj)) dates.push(o);
+      }
+      for (const o of dates) if (o >= m.depuis) res.push({ id: 'm:' + m.id + '|' + o, mensuelle: m.id, titre: m.titre, date: o, faite: faitesMois[m.id + '|' + o] || null });
+    }
+    return res;
+  }
   function tachesDu(d) {
     const auj = aujourdhui();
-    return taches.filter((t) => t.date === d || (d === auj && t.date < auj && (!t.faite || t.faite === auj)))
+    return [...taches.filter((t) => t.date === d || (d === auj && t.date < auj && (!t.faite || t.faite === auj))), ...occurrencesMois(d)]
       .sort((a, b) => (!!a.faite - !!b.faite) || a.date.localeCompare(b.date) || a.titre.localeCompare(b.titre));
   }
   const dateBreve = (s) => new Intl.DateTimeFormat('fr-BE', { weekday: 'short', day: 'numeric', month: 'short' }).format(versDate(s));
@@ -418,11 +439,12 @@
     const lesTaches = tachesDu(jourVu);
     const blocTaches = !lesTaches.length ? '' : `<div class="afaire"><div class="titre-af">À faire</div>${lesTaches.map((t) => {
       const retard = !t.faite && t.date < auj, ouvert = ouvertId === 't:' + t.id;
-      const info = t.faite && t.date < auj ? 'faite aujourd’hui' : retard ? `en retard · prévue ${dateBreve(t.date)}` : '';
+      const info = [t.mensuelle ? 'chaque mois' : '', t.faite && t.date < auj ? 'faite aujourd’hui' : retard ? `en retard · prévue ${dateBreve(t.date)}` : ''].filter(Boolean).join(' · ');
       return `<div class="tache${t.faite ? ' faite' : ''}${retard ? ' retard' : ''}">
         <button class="case" data-cocher="${t.id}" aria-pressed="${!!t.faite}" aria-label="${t.faite ? 'Faite' : 'À faire'} : ${esc(t.titre)}">${t.faite ? '✓' : ''}</button>
         <button class="txt" data-ouvrir="t:${t.id}" aria-expanded="${ouvert}"><b>${esc(t.titre)}</b>${info ? `<small>${info}</small>` : ''}</button>
-        ${ouvert ? `<div class="actions"><button class="btn petit" data-modtache="${t.id}">Modifier</button><button class="btn petit danger" data-supprtache="${t.id}">Supprimer</button></div>` : ''}</div>`;
+        ${!ouvert ? '' : t.mensuelle ? `<div class="actions"><button class="btn petit" data-modmois="${t.mensuelle}">Modifier dans Mes trames</button></div>`
+          : `<div class="actions"><button class="btn petit" data-modtache="${t.id}">Modifier</button><button class="btn petit danger" data-supprtache="${t.id}">Supprimer</button></div>`}</div>`;
     }).join('')}</div>`;
 
     const et = edition?.type === 'tache' ? edition : null;
@@ -504,7 +526,9 @@
       document.getElementById('formRdv').scrollIntoView({ block: 'center' });
     });
     $app.querySelectorAll('[data-cocher]').forEach((x) => x.onclick = () => {
-      const t = taches.find((y) => y.id === x.dataset.cocher); if (!t) return;
+      const id = x.dataset.cocher;
+      if (id.startsWith('m:')) { const k = id.slice(2); if (faitesMois[k]) delete faitesMois[k]; else faitesMois[k] = aujourdhui(); tout(); return afficher(); }
+      const t = taches.find((y) => y.id === id); if (!t) return;
       t.faite = t.faite ? null : aujourdhui(); tout(); afficher();
     });
     $app.querySelectorAll('[data-supprtache]').forEach((x) => x.onclick = () => {
@@ -515,6 +539,10 @@
     $app.querySelectorAll('[data-modtache]').forEach((x) => x.onclick = () => {
       edition = { type: 'tache', ...taches.find((y) => y.id === x.dataset.modtache) }; ouvertId = null; afficher();
       document.getElementById('formTache').scrollIntoView({ block: 'center' });
+    });
+    $app.querySelectorAll('[data-modmois]').forEach((x) => x.onclick = () => {
+      edition = { type: 'mois', ...mensuelles.find((m) => m.id === x.dataset.modmois) }; ouvertId = null; ecran = 'trames'; afficher();
+      document.getElementById('formMois').scrollIntoView({ block: 'center' });
     });
     const nt = document.getElementById('nouvelleTache');
     if (nt) nt.onclick = () => {
@@ -616,6 +644,11 @@
           <label class="champ">Nouvelle trame <input type="text" id="nomTrame" maxlength="40" placeholder="Période de cours, Sans cours…"></label>
           <button class="btn plein" id="ajouterTrame">Créer</button>
         </div>
+        <h2>Chaque mois</h2>
+        <p class="doux">Les tâches qui reviennent à date fixe, quelle que soit la période. Elles apparaissent dans «${NB}À faire${NB}» le jour venu.</p>
+        ${mensuelles.length ? `<div class="carte">${[...mensuelles].sort((a, b) => a.jour - b.jour).map((m) => `<div class="ligne"><span class="pastille" style="background:transparent;border:2px solid #3A342E"></span>
+          <div class="texte"><b>${esc(m.titre)}</b><small>le ${m.jour === 1 ? '1er' : m.jour} de chaque mois</small></div><button class="lien" data-modmoisl="${m.id}">Modifier</button></div>`).join('')}</div>` : ''}
+        ${formMois()}
         <h2>Catégories</h2>
         <div class="carte">${categories.length ? categories.map((c) => `<div class="ligne"><span class="pastille" style="background:${c.coul}"></span>
           <div class="texte"><b>${esc(c.nom)}</b></div><button class="lien" data-modcat="${c.id}">Modifier</button></div>`).join('') : '<p class="doux">Aucune catégorie pour l’instant.</p>'}</div>
@@ -631,7 +664,46 @@
       tout(); trameOuverte = t.id; ecran = 'trame'; afficher(); window.scrollTo(0, 0);
     };
     brancherCategorie();
+    brancherMois();
     $app.querySelectorAll('[data-modcat]').forEach((b) => b.onclick = () => { edition = { type: 'cat', id: b.dataset.modcat }; afficher(); document.getElementById('formCat').scrollIntoView({ block: 'center' }); });
+  }
+
+  function formMois() {
+    const m = edition?.type === 'mois' ? edition : null;
+    if (!m) return `<button class="btn discret" id="nouvelleMois">+ Tâche mensuelle</button>`;
+    return `<div class="formulaire" id="formMois">
+      <strong>${m.id ? 'Modifier la tâche mensuelle' : 'Nouvelle tâche mensuelle'}</strong>
+      <label class="champ">Quoi <input type="text" id="titreMois" maxlength="80" value="${esc(m.titre || '')}" placeholder="Relever les compteurs, payer le loyer…"></label>
+      <label class="champ">Chaque mois, le <select id="jourMois">${Array.from({ length: 31 }, (_, i) => i + 1).map((j) => `<option value="${j}" ${j === (m.jour || 1) ? 'selected' : ''}>${j === 1 ? '1er' : j}</option>`).join('')}</select></label>
+      <p class="doux" style="font-size:15px">Un 29, 30 ou 31 tombe le dernier jour des mois plus courts.</p>
+      <div class="rangee"><button class="btn plein" id="enregMois">${m.id ? 'Enregistrer' : 'Ajouter'}</button><button class="btn discret" id="annulerMois">Annuler</button></div>
+      ${m.id ? '<button class="btn danger" id="supprMois">Supprimer cette tâche mensuelle</button>' : ''}
+    </div>`;
+  }
+  function brancherMois() {
+    const nm = document.getElementById('nouvelleMois');
+    if (nm) nm.onclick = () => { edition = { type: 'mois', id: null, titre: '', jour: Number(aujourdhui().slice(8)) }; afficher(); document.getElementById('formMois').scrollIntoView({ block: 'center' }); document.getElementById('titreMois').focus(); };
+    $app.querySelectorAll('[data-modmoisl]').forEach((b) => b.onclick = () => { edition = { type: 'mois', ...mensuelles.find((m) => m.id === b.dataset.modmoisl) }; afficher(); document.getElementById('formMois').scrollIntoView({ block: 'center' }); });
+    const m = edition?.type === 'mois' ? edition : null;
+    if (!m) return;
+    const fm = document.getElementById('formMois');
+    const garder = () => { m.titre = document.getElementById('titreMois').value; m.jour = Number(document.getElementById('jourMois').value); };
+    fm.addEventListener('input', garder); fm.addEventListener('change', garder);
+    document.getElementById('annulerMois').onclick = () => { edition = null; afficher(); };
+    const su = document.getElementById('supprMois');
+    if (su) su.onclick = () => {
+      if (!confirm(`Supprimer «${NB}${m.titre}${NB}» de chaque mois ?`)) return;
+      mensuelles = mensuelles.filter((x) => x.id !== m.id);
+      faitesMois = Object.fromEntries(Object.entries(faitesMois).filter(([k]) => !k.startsWith(m.id + '|')));
+      edition = null; tout(); dire('Tâche mensuelle supprimée'); afficher();
+    };
+    document.getElementById('enregMois').onclick = () => {
+      const titre = document.getElementById('titreMois').value.trim(), jour = Number(document.getElementById('jourMois').value);
+      if (!titre) return dire('Dis en un mot de quoi il s’agit');
+      if (m.id) Object.assign(mensuelles.find((x) => x.id === m.id), { titre, jour });
+      else mensuelles.push({ id: nid(), titre, jour, depuis: aujourdhui() });
+      edition = null; tout(); dire(m.id ? 'Tâche mensuelle modifiée' : 'Tâche mensuelle ajoutée'); afficher();
+    };
   }
 
   function formCategorie() {
@@ -828,11 +900,11 @@
     if (dl) dl.onclick = () => { corsia = null; tout(); dire('Corsia est déliée'); afficher(); };
     document.getElementById('toutEffacer').onclick = () => {
       if (!confirm('Tout effacer de Tempo sur ce téléphone ?')) return;
-      categories = []; trames = []; periodes = []; parDefaut = null; evenements = []; exceptions = []; corsia = null; taches = [];
+      categories = []; trames = []; periodes = []; parDefaut = null; evenements = []; exceptions = []; corsia = null; taches = []; mensuelles = []; faitesMois = {};
       tout(); dire('Tempo est vide'); ecran = 'jour'; afficher();
     };
     document.getElementById('exp').onclick = () => {
-      const paquet = { app: 'tempo', format: 1, exporte: new Date().toISOString(), categories, trames, periodes, parDefaut, evenements, exceptions, corsia, taches };
+      const paquet = { app: 'tempo', format: 1, exporte: new Date().toISOString(), categories, trames, periodes, parDefaut, evenements, exceptions, corsia, taches, mensuelles, faitesMois };
       const url = URL.createObjectURL(new Blob([JSON.stringify(paquet, null, 2)], { type: 'application/json' }));
       const a = document.createElement('a'); a.href = url; a.download = `tempo-${aujourdhui()}.json`; document.body.appendChild(a); a.click(); a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 2000); dire('Sauvegarde enregistrée');
@@ -871,7 +943,7 @@
     if (!p || p.app !== 'tempo') return dire('Ce fichier n’est pas une sauvegarde de Tempo');
     if (!confirm('Remplacer tout ce qui est dans Tempo par cette sauvegarde ?')) return;
     categories = p.categories || []; trames = p.trames || []; periodes = p.periodes || []; parDefaut = p.parDefaut || null;
-    evenements = p.evenements || []; exceptions = p.exceptions || []; corsia = p.corsia || null; taches = p.taches || [];
+    evenements = p.evenements || []; exceptions = p.exceptions || []; corsia = p.corsia || null; taches = p.taches || []; mensuelles = p.mensuelles || []; faitesMois = p.faitesMois || {};
     recolorer(); tout(); dire('Sauvegarde restaurée'); ecran = 'jour'; afficher();
   }
 
