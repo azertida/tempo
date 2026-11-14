@@ -81,6 +81,8 @@
   .jours .points { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; width: 48px; min-height: 22px; margin-top: 4px; align-content: flex-start; }
   .jours .points i { width: 9px; height: 9px; border-radius: 50%; display: block; }
   .jours .points b { width: 9px; font-size: 10px; line-height: 9px; font-weight: 700; color: var(--doux); text-align: center; letter-spacing: -0.5px; white-space: nowrap; display: flex; justify-content: center; }
+  .jours .points i.anneau { background: transparent; border: 2px solid #3A342E; box-sizing: border-box; }
+  .jours .points i.anneau.retard { border-color: var(--rouge); }
   .jours button.conge { border-style: dashed; background: transparent; }
   /* Jour choisi : épais contour bleu clair sur le fond habituel, pour que les points gardent leur couleur. */
   .jours button[aria-pressed="true"] { border: 3px solid var(--bleu-clair); padding: 10.5px 2.5px; }
@@ -112,6 +114,18 @@
   .maintenant { display: grid; grid-template-columns: 62px 1fr; gap: 10px; align-items: center; color: var(--violet); font-weight: 700; font-size: 14px; }
   .maintenant span:first-child { text-align: right; }
   .maintenant span:last-child { height: 2px; background: var(--violet); border-radius: 1px; }
+  /* À faire : des tâches datées, sans heure, sans couleur de catégorie */
+  .afaire { display: flex; flex-direction: column; gap: 2px; border: 1.5px solid var(--bord-fort); border-radius: 14px; padding: 6px 12px 8px; background: var(--carte); }
+  .afaire .titre-af { font-size: 13px; font-weight: 700; color: var(--doux); text-transform: uppercase; letter-spacing: 0.5px; padding-top: 4px; }
+  .tache { display: grid; grid-template-columns: 34px 1fr; align-items: center; gap: 8px; min-height: 44px; }
+  .tache .case { width: 26px; height: 26px; border-radius: 50%; border: 2px solid #3A342E; background: transparent; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 700; color: #fff; }
+  .tache.retard .case { border-color: var(--rouge); }
+  .tache.faite .case { background: #3A342E; border-color: #3A342E; }
+  .tache .txt { background: none; border: none; text-align: left; font: inherit; color: inherit; padding: 6px 0; cursor: pointer; }
+  .tache .txt small { display: block; font-size: 14px; color: var(--doux); }
+  .tache.retard .txt small { color: var(--rouge); font-weight: 700; }
+  .tache.faite .txt b { text-decoration: line-through; color: var(--doux); font-weight: 400; }
+  .tache .actions { grid-column: 2; margin-top: 0; padding-bottom: 6px; }
   .vide { text-align: center; color: var(--doux); padding: 26px 12px; border: 1.5px dashed var(--bord-fort); border-radius: 16px; }
 
   /* Mini-semaine d'une trame */
@@ -161,7 +175,7 @@
 <script>
 (() => {
   'use strict';
-  const VERSION = '1.24';
+  const VERSION = '1.25';
   const P = 'tempo.';
   const NB = ' ';
   const FENETRE = 14;              // jours affichés dans la rangée
@@ -184,11 +198,13 @@
   let evenements = lire('evenements', []);   // ce qui arrive : { id, date, titre, deb, fin, cat (id ou null = rendez-vous) }
   let exceptions = lire('exceptions', []);   // blocs de la trame sautés un jour : "idBloc|date"
   let corsia = lire('corsia', null);         // lien avec Corsia : { c, nom, h: [cours habituels], cours, inter, maj }
+  let taches = lire('taches', []);           // à faire : { id, titre, date (échéance), faite (date où elle a été cochée, ou null) }
   const tout = () => { ecrire('categories', categories); ecrire('trames', trames); ecrire('periodes', periodes); ecrire('parDefaut', parDefaut);
-                       ecrire('evenements', evenements); ecrire('exceptions', exceptions); ecrire('corsia', corsia); };
+                       ecrire('evenements', evenements); ecrire('exceptions', exceptions); ecrire('corsia', corsia); ecrire('taches', taches); };
   // Ce qui est passé depuis plus de 60 jours s'efface tout seul.
   (() => { const d = new Date(); d.setDate(d.getDate() - 60); const limite = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-    evenements = evenements.filter((e) => e.date >= limite); exceptions = exceptions.filter((k) => k.split('|')[1] >= limite); })();
+    evenements = evenements.filter((e) => e.date >= limite); exceptions = exceptions.filter((k) => k.split('|')[1] >= limite);
+    taches = taches.filter((t) => !t.faite || t.date >= limite); })();   // une tâche non faite ne s'efface jamais
 
   // Une catégorie qui porte une couleur réservée en reçoit une libre (l'ocre d'abord).
   function recolorer() {
@@ -320,6 +336,15 @@
     } catch { return false; }
   }
 
+  // Les tâches d'un jour. Aujourd'hui, on y ajoute celles en retard (non faites, échéance passée)
+  // et celles en retard cochées aujourd'hui, pour garder la trace de ce qui vient d'être fait.
+  function tachesDu(d) {
+    const auj = aujourdhui();
+    return taches.filter((t) => t.date === d || (d === auj && t.date < auj && (!t.faite || t.faite === auj)))
+      .sort((a, b) => (!!a.faite - !!b.faite) || a.date.localeCompare(b.date) || a.titre.localeCompare(b.titre));
+  }
+  const dateBreve = (s) => new Intl.DateTimeFormat('fr-BE', { weekday: 'short', day: 'numeric', month: 'short' }).format(versDate(s));
+
   function ecranJour() {
     const auj = aujourdhui();
     if (jourVu < auj) jourVu = auj;
@@ -328,14 +353,15 @@
       const { periode: p } = trameDu(d);
       const conge = p && !p.trame;
       const els = elementsDu(d).filter((x) => !x.saute);
-      // Un point par élément de la journée, dans l'ordre chronologique, quatre par ligne sur deux lignes ;
-      // au-delà de huit, les sept premiers et « +n ».
-      const vus = els.length > 8 ? els.slice(0, 7) : els;
-      const points = vus.map((x) => `<i style="background:${couleurDe(x).coul}"></i>`).join('') + (els.length > 8 ? `<b>+${els.length - 7}</b>` : '');
+      const af = tachesDu(d).filter((t) => !t.faite);
+      // Un anneau par tâche à faire (rouge brique si en retard), puis un point par élément de la journée,
+      // dans l'ordre chronologique, quatre par ligne sur deux lignes ; au-delà de huit, les sept premiers et « +n ».
+      const marques = [...af.map((t) => `<i class="anneau${t.date < auj ? ' retard' : ''}"></i>`), ...els.map((x) => `<i style="background:${couleurDe(x).coul}"></i>`)];
+      const points = (marques.length > 8 ? marques.slice(0, 7) : marques).join('') + (marques.length > 8 ? `<b>+${marques.length - 7}</b>` : '');
       const haut = d === auj ? 'Auj.' : d === plusJours(auj, 1) ? 'Dem.' : ABR[jourDe(d)];
       const arrive = els.filter((x) => x.type !== 'trame');
       const conflit = arrive.some((x, i) => arrive.some((y, k) => k > i && y.deb < x.fin && x.deb < y.fin));
-      return `<button data-jour="${d}" aria-pressed="${d === jourVu}" class="${conge ? 'conge' : ''}" aria-label="${dateLongue(d)}, ${els.length ? els.length + ' élément' + (els.length > 1 ? 's' : '') : 'rien de prévu'}${conflit ? ', deux rendez-vous en même temps' : ''}">
+      return `<button data-jour="${d}" aria-pressed="${d === jourVu}" class="${conge ? 'conge' : ''}" aria-label="${dateLongue(d)}, ${els.length ? els.length + ' élément' + (els.length > 1 ? 's' : '') : 'rien de prévu'}${af.length ? `, ${af.length} à faire` : ''}${conflit ? ', deux rendez-vous en même temps' : ''}">
         ${conflit ? '<span class="alerte" aria-hidden="true">⚠</span>' : ''}<span class="j">${haut}</span><span class="n">${Number(d.slice(8))}</span><span class="points">${points}</span></button>`;
     }).join('');
 
@@ -389,8 +415,27 @@
       corps = `<div class="journee">${morceaux.join('')}</div>`;
     }
 
+    const lesTaches = tachesDu(jourVu);
+    const blocTaches = !lesTaches.length ? '' : `<div class="afaire"><div class="titre-af">À faire</div>${lesTaches.map((t) => {
+      const retard = !t.faite && t.date < auj, ouvert = ouvertId === 't:' + t.id;
+      const info = t.faite && t.date < auj ? 'faite aujourd’hui' : retard ? `en retard · prévue ${dateBreve(t.date)}` : '';
+      return `<div class="tache${t.faite ? ' faite' : ''}${retard ? ' retard' : ''}">
+        <button class="case" data-cocher="${t.id}" aria-pressed="${!!t.faite}" aria-label="${t.faite ? 'Faite' : 'À faire'} : ${esc(t.titre)}">${t.faite ? '✓' : ''}</button>
+        <button class="txt" data-ouvrir="t:${t.id}" aria-expanded="${ouvert}"><b>${esc(t.titre)}</b>${info ? `<small>${info}</small>` : ''}</button>
+        ${ouvert ? `<div class="actions"><button class="btn petit" data-modtache="${t.id}">Modifier</button><button class="btn petit danger" data-supprtache="${t.id}">Supprimer</button></div>` : ''}</div>`;
+    }).join('')}</div>`;
+
+    const et = edition?.type === 'tache' ? edition : null;
+    const formTache = !et ? '' : `<div class="formulaire" id="formTache">
+        <strong>${et.id ? 'Modifier la tâche' : 'Nouvelle tâche'}</strong>
+        <label class="champ">Quoi <input type="text" id="titreTache" maxlength="80" value="${esc(et.titre || '')}" placeholder="Rappeler le garage, renvoyer le formulaire…"></label>
+        <label class="champ">Pour le ${boite('dateTache', 'date', et.date)}</label>
+        <div class="rangee"><button class="btn plein" id="enregTache">${et.id ? 'Enregistrer' : 'Ajouter'}</button><button class="btn discret" id="annulerTache">Annuler</button></div>
+        ${et.id ? '<button class="btn danger" id="supprTacheForm">Supprimer cette tâche</button>' : ''}
+      </div>`;
+
     const e = edition?.type === 'rdv' ? edition : null;
-    const formRdv = !e ? `<button class="btn clair" id="nouveauRdv">+ Rendez-vous</button>` : `<div class="formulaire" id="formRdv">
+    const formRdv = et ? formTache : !e ? `<div class="rangee"><button class="btn clair" id="nouveauRdv">+ Rendez-vous</button><button class="btn discret" id="nouvelleTache">+ À faire</button></div>` : `<div class="formulaire" id="formRdv">
         <strong>${e.id ? 'Modifier le rendez-vous' : 'Nouveau rendez-vous'}</strong>
         <label class="champ">Quoi <input type="text" id="titreRdv" maxlength="60" value="${esc(e.titre || '')}" placeholder="Dentiste, café avec Marie…"></label>
         <label class="champ">Date ${boite('dateRdv', 'date', e.date)}</label>
@@ -402,20 +447,25 @@
 
     // Plus tard : les rendez-vous au-delà de la rangée de jours, pour vérifier ce qui est noté.
     const finRangee = plusJours(auj, FENETRE - 1);
-    const lointains = evenements.filter((x) => x.date > finRangee).sort((a, b) => (a.date + hhmm(a.deb)).localeCompare(b.date + hhmm(b.deb)));
+    const lointains = [...evenements.filter((x) => x.date > finRangee),
+      ...taches.filter((t) => t.date > finRangee && !t.faite).map((t) => ({ ...t, tache: true, deb: -1 }))]
+      .sort((a, b) => a.date.localeCompare(b.date) || a.deb - b.deb);
+    const nR = lointains.filter((x) => !x.tache).length, nT = lointains.length - nR;
+    const resume = [nR ? `${nR} rendez-vous` : '', nT ? `${nT} à faire` : ''].filter(Boolean).join(' · ');
     const plusTard = !lointains.length ? '' : !plusTardOuvert
-      ? `<button class="btn secondaire" id="ouvrirPlusTard" aria-expanded="false">Plus tard · ${lointains.length} rendez-vous</button>`
+      ? `<button class="btn secondaire" id="ouvrirPlusTard" aria-expanded="false">Plus tard · ${resume}</button>`
       : `<div class="carte"><div style="display:flex;justify-content:space-between;align-items:center"><h3>Plus tard</h3>
           <button class="lien" id="ouvrirPlusTard" aria-expanded="true">Replier</button></div>
-        ${lointains.map((x) => `<div class="ligne"><span class="pastille" style="background:${catRdv(x.cat).coul}"></span>
-          <div class="texte"><b>${esc(x.titre)}</b><small>${dateLongue(x.date)}${x.date.slice(0, 4) !== auj.slice(0, 4) ? ' ' + x.date.slice(0, 4) : ''} · ${heure(x.deb)}</small></div>
-          <button class="lien" data-modrdv="${x.id}">Modifier</button></div>`).join('')}</div>`;
+        ${lointains.map((x) => `<div class="ligne">${x.tache ? '<span class="pastille" style="background:transparent;border:2px solid #3A342E"></span>' : `<span class="pastille" style="background:${catRdv(x.cat).coul}"></span>`}
+          <div class="texte"><b>${esc(x.titre)}</b><small>${x.tache ? 'À faire pour le ' + dateLongue(x.date).toLowerCase() : dateLongue(x.date)}${x.date.slice(0, 4) !== auj.slice(0, 4) ? ' ' + x.date.slice(0, 4) : ''}${x.tache ? '' : ' · ' + heure(x.deb)}</small></div>
+          <button class="lien" ${x.tache ? 'data-modtache' : 'data-modrdv'}="${x.id}">Modifier</button></div>`).join('')}</div>`;
 
     $app.innerHTML = `
       <div class="entete"><div><h1>Tempo</h1><div class="sous">${esc(libellePeriode(jourVu))}</div></div></div>
       <div class="collant"><div class="jours" role="group" aria-label="Jours">${bande}</div></div>
       <div class="pile">
         <h2>${jourVu === auj ? 'Aujourd’hui' : jourVu === plusJours(auj, 1) ? 'Demain' : ''}${jourVu === auj || jourVu === plusJours(auj, 1) ? `<span class="doux" style="font-family:'Atkinson Hyperlegible',system-ui,sans-serif;font-size:17px;font-weight:400"> · ${dateLongue(jourVu).toLowerCase()}</span>` : dateLongue(jourVu)}</h2>
+        ${blocTaches}
         ${corps}
         ${formRdv}
         ${plusTard}
@@ -432,7 +482,7 @@
     if (choisi) { const r = choisi.getBoundingClientRect(), br = b.getBoundingClientRect(); if (r.right > br.right) b.scrollLeft += r.right - br.right + 16; else if (r.left < br.left) b.scrollLeft -= br.left - r.left + 16; }
     defil = b.scrollLeft;
     b.addEventListener('scroll', () => { defil = b.scrollLeft; }, { passive: true });
-    b.querySelectorAll('[data-jour]').forEach((x) => x.onclick = () => { jourVu = x.dataset.jour; ouvertId = null; if (edition?.type === 'rdv' && !edition.id) edition.date = jourVu; afficher(); });
+    b.querySelectorAll('[data-jour]').forEach((x) => x.onclick = () => { jourVu = x.dataset.jour; ouvertId = null; if ((edition?.type === 'rdv' || edition?.type === 'tache') && !edition.id) edition.date = jourVu; afficher(); });
     $app.querySelectorAll('#allerTrames').forEach((x) => x.onclick = () => { ecran = 'trames'; edition = null; afficher(); window.scrollTo(0, 0); });
     document.getElementById('allerPeriodes').onclick = () => { ecran = 'periodes'; edition = null; afficher(); window.scrollTo(0, 0); };
     document.getElementById('allerDonnees').onclick = () => { ecran = 'donnees'; edition = null; afficher(); window.scrollTo(0, 0); };
@@ -453,6 +503,43 @@
       edition = { type: 'rdv', ...evenements.find((y) => y.id === x.dataset.modrdv) }; ouvertId = null; afficher();
       document.getElementById('formRdv').scrollIntoView({ block: 'center' });
     });
+    $app.querySelectorAll('[data-cocher]').forEach((x) => x.onclick = () => {
+      const t = taches.find((y) => y.id === x.dataset.cocher); if (!t) return;
+      t.faite = t.faite ? null : aujourdhui(); tout(); afficher();
+    });
+    $app.querySelectorAll('[data-supprtache]').forEach((x) => x.onclick = () => {
+      const t = taches.find((y) => y.id === x.dataset.supprtache);
+      if (!confirm(`Supprimer «${NB}${t?.titre || 'cette tâche'}${NB}» ?`)) return;
+      taches = taches.filter((y) => y.id !== x.dataset.supprtache); ouvertId = null; tout(); dire('Tâche supprimée'); afficher();
+    });
+    $app.querySelectorAll('[data-modtache]').forEach((x) => x.onclick = () => {
+      edition = { type: 'tache', ...taches.find((y) => y.id === x.dataset.modtache) }; ouvertId = null; afficher();
+      document.getElementById('formTache').scrollIntoView({ block: 'center' });
+    });
+    const nt = document.getElementById('nouvelleTache');
+    if (nt) nt.onclick = () => {
+      edition = { type: 'tache', id: null, date: jourVu, titre: '' }; afficher();
+      document.getElementById('formTache').scrollIntoView({ block: 'center' }); document.getElementById('titreTache').focus();
+    };
+    if (et) {
+      const garderT = () => { et.titre = document.getElementById('titreTache').value; et.date = document.getElementById('dateTache').value || et.date; };
+      const ft = document.getElementById('formTache');
+      ft.addEventListener('input', garderT); ft.addEventListener('change', garderT);
+      document.getElementById('annulerTache').onclick = () => { edition = null; afficher(); };
+      const st = document.getElementById('supprTacheForm');
+      if (st) st.onclick = () => {
+        if (!confirm(`Supprimer «${NB}${et.titre}${NB}» ?`)) return;
+        taches = taches.filter((y) => y.id !== et.id); edition = null; tout(); dire('Tâche supprimée'); afficher();
+      };
+      document.getElementById('enregTache').onclick = () => {
+        const titre = document.getElementById('titreTache').value.trim();
+        const date = document.getElementById('dateTache').value;
+        if (!titre) return dire('Dis en un mot de quoi il s’agit');
+        if (!date) return dire('Choisis pour quel jour');
+        if (et.id) Object.assign(taches.find((y) => y.id === et.id), { titre, date }); else taches.push({ id: nid(), titre, date, faite: null });
+        edition = null; if (date >= aujourdhui() && date <= plusJours(aujourdhui(), FENETRE - 1)) jourVu = date; tout(); dire(et.id ? 'Tâche modifiée' : 'Tâche ajoutée'); afficher();
+      };
+    }
     const opt = document.getElementById('ouvrirPlusTard');
     if (opt) opt.onclick = () => { plusTardOuvert = !plusTardOuvert; afficher(); };
     const nr = document.getElementById('nouveauRdv');
@@ -717,7 +804,7 @@
           <p>Un fichier avec toutes tes données, à garder dans tes fichiers. Pour changer de téléphone ou réinstaller Tempo.</p>
           <div class="rangee"><button class="btn" id="exp">Enregistrer une sauvegarde</button><button class="btn" id="imp">Restaurer</button></div></div>
         <div class="encadre"><h3>Tout effacer de ce téléphone</h3>
-          <p>Catégories, trames, calendrier et rendez-vous. Pour repartir de zéro. Pense à faire une sauvegarde avant, si tu veux pouvoir revenir en arrière.</p>
+          <p>Catégories, trames, calendrier, rendez-vous et tâches. Pour repartir de zéro. Pense à faire une sauvegarde avant, si tu veux pouvoir revenir en arrière.</p>
           <button class="btn danger" id="toutEffacer">Tout effacer</button></div>
         <input type="file" id="fichier" accept="application/json,.json" hidden>
         <p class="pied">Tempo · version ${VERSION}</p>
@@ -741,11 +828,11 @@
     if (dl) dl.onclick = () => { corsia = null; tout(); dire('Corsia est déliée'); afficher(); };
     document.getElementById('toutEffacer').onclick = () => {
       if (!confirm('Tout effacer de Tempo sur ce téléphone ?')) return;
-      categories = []; trames = []; periodes = []; parDefaut = null; evenements = []; exceptions = []; corsia = null;
+      categories = []; trames = []; periodes = []; parDefaut = null; evenements = []; exceptions = []; corsia = null; taches = [];
       tout(); dire('Tempo est vide'); ecran = 'jour'; afficher();
     };
     document.getElementById('exp').onclick = () => {
-      const paquet = { app: 'tempo', format: 1, exporte: new Date().toISOString(), categories, trames, periodes, parDefaut, evenements, exceptions, corsia };
+      const paquet = { app: 'tempo', format: 1, exporte: new Date().toISOString(), categories, trames, periodes, parDefaut, evenements, exceptions, corsia, taches };
       const url = URL.createObjectURL(new Blob([JSON.stringify(paquet, null, 2)], { type: 'application/json' }));
       const a = document.createElement('a'); a.href = url; a.download = `tempo-${aujourdhui()}.json`; document.body.appendChild(a); a.click(); a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 2000); dire('Sauvegarde enregistrée');
@@ -784,7 +871,7 @@
     if (!p || p.app !== 'tempo') return dire('Ce fichier n’est pas une sauvegarde de Tempo');
     if (!confirm('Remplacer tout ce qui est dans Tempo par cette sauvegarde ?')) return;
     categories = p.categories || []; trames = p.trames || []; periodes = p.periodes || []; parDefaut = p.parDefaut || null;
-    evenements = p.evenements || []; exceptions = p.exceptions || []; corsia = p.corsia || null;
+    evenements = p.evenements || []; exceptions = p.exceptions || []; corsia = p.corsia || null; taches = p.taches || [];
     recolorer(); tout(); dire('Sauvegarde restaurée'); ecran = 'jour'; afficher();
   }
 
