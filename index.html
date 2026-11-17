@@ -81,7 +81,7 @@
   .jours .points { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; width: 48px; min-height: 22px; margin-top: 4px; align-content: flex-start; }
   .jours .points i { width: 9px; height: 9px; border-radius: 50%; display: block; }
   .jours .points b { width: 9px; font-size: 10px; line-height: 9px; font-weight: 700; color: var(--doux); text-align: center; letter-spacing: -0.5px; white-space: nowrap; display: flex; justify-content: center; }
-  .jours .points i.anneau { background: transparent; border: 2px solid #3A342E; box-sizing: border-box; }
+  .jours .points i.anneau { background: transparent; border: 2px solid var(--bleu); box-sizing: border-box; }
   .jours .points i.anneau.retard { border-color: var(--rouge); }
   .jours button.conge { border-style: dashed; background: transparent; }
   /* Jour choisi : épais contour bleu clair sur le fond habituel, pour que les points gardent leur couleur. */
@@ -118,9 +118,9 @@
   .afaire { display: flex; flex-direction: column; gap: 2px; border: 1.5px solid var(--bord-fort); border-radius: 14px; padding: 6px 12px 8px; background: var(--carte); }
   .afaire .titre-af { font-size: 13px; font-weight: 700; color: var(--doux); text-transform: uppercase; letter-spacing: 0.5px; padding-top: 4px; }
   .tache { display: grid; grid-template-columns: 34px 1fr; align-items: center; gap: 8px; min-height: 44px; }
-  .tache .case { width: 26px; height: 26px; border-radius: 50%; border: 2px solid #3A342E; background: transparent; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 700; color: #fff; }
+  .tache .case { width: 26px; height: 26px; border-radius: 50%; border: 2px solid var(--bleu); background: transparent; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 700; color: #fff; }
   .tache.retard .case { border-color: var(--rouge); }
-  .tache.faite .case { background: #3A342E; border-color: #3A342E; }
+  .tache.faite .case { background: var(--bleu); border-color: var(--bleu); }
   .tache .txt { background: none; border: none; text-align: left; font: inherit; color: inherit; padding: 6px 0; cursor: pointer; }
   .tache .txt small { display: block; font-size: 14px; color: var(--doux); }
   .tache.retard .txt small { color: var(--rouge); font-weight: 700; }
@@ -175,7 +175,7 @@
 <script>
 (() => {
   'use strict';
-  const VERSION = '1.26';
+  const VERSION = '1.27';
   const P = 'tempo.';
   const NB = ' ';
   const FENETRE = 14;              // jours affichés dans la rangée
@@ -478,7 +478,7 @@
       ? `<button class="btn secondaire" id="ouvrirPlusTard" aria-expanded="false">Plus tard · ${resume}</button>`
       : `<div class="carte"><div style="display:flex;justify-content:space-between;align-items:center"><h3>Plus tard</h3>
           <button class="lien" id="ouvrirPlusTard" aria-expanded="true">Replier</button></div>
-        ${lointains.map((x) => `<div class="ligne">${x.tache ? '<span class="pastille" style="background:transparent;border:2px solid #3A342E"></span>' : `<span class="pastille" style="background:${catRdv(x.cat).coul}"></span>`}
+        ${lointains.map((x) => `<div class="ligne">${x.tache ? '<span class="pastille" style="background:transparent;border:2px solid var(--bleu)"></span>' : `<span class="pastille" style="background:${catRdv(x.cat).coul}"></span>`}
           <div class="texte"><b>${esc(x.titre)}</b><small>${x.tache ? 'À faire pour le ' + dateLongue(x.date).toLowerCase() : dateLongue(x.date)}${x.date.slice(0, 4) !== auj.slice(0, 4) ? ' ' + x.date.slice(0, 4) : ''}${x.tache ? '' : ' · ' + heure(x.deb)}</small></div>
           <button class="lien" ${x.tache ? 'data-modtache' : 'data-modrdv'}="${x.id}">Modifier</button></div>`).join('')}</div>`;
 
@@ -646,7 +646,7 @@
         </div>
         <h2>Chaque mois</h2>
         <p class="doux">Les tâches qui reviennent à date fixe, quelle que soit la période. Elles apparaissent dans «${NB}À faire${NB}» le jour venu.</p>
-        ${mensuelles.length ? `<div class="carte">${[...mensuelles].sort((a, b) => a.jour - b.jour).map((m) => `<div class="ligne"><span class="pastille" style="background:transparent;border:2px solid #3A342E"></span>
+        ${mensuelles.length ? `<div class="carte">${[...mensuelles].sort((a, b) => a.jour - b.jour).map((m) => `<div class="ligne"><span class="pastille" style="background:transparent;border:2px solid var(--bleu)"></span>
           <div class="texte"><b>${esc(m.titre)}</b><small>le ${m.jour === 1 ? '1er' : m.jour} de chaque mois</small></div><button class="lien" data-modmoisl="${m.id}">Modifier</button></div>`).join('')}</div>` : ''}
         ${formMois()}
         <h2>Catégories</h2>
