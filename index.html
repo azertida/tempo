@@ -175,7 +175,7 @@
 <script>
 (() => {
   'use strict';
-  const VERSION = '1.28';
+  const VERSION = '1.29';
   const P = 'tempo.';
   const NB = ' ';
   const FENETRE = 14;              // jours affichés dans la rangée
@@ -183,10 +183,12 @@
   const ABR = ['Lun.', 'Mar.', 'Mer.', 'Jeu.', 'Ven.', 'Sam.', 'Dim.'];
   // Palette des catégories, accordée à Corsia, le bleu en tête.
   // Trois couleurs ont un rôle et ne sont jamais données à une catégorie :
-  // le bleu clair (séances Corsia), le brun-noir (rendez-vous) et le violet (heure, « pendant », ⚠).
+  // le bleu clair (séances Corsia), le bleu-gris (rendez-vous) et le violet (heure, « pendant », ⚠).
   const PALETTE = ['#1F4E6B', '#E8A23A', '#6E9E7A', '#C0643A', '#C46A8F', '#A79B8A', '#9B2C1F',
-                   '#2F7F7A', '#7E8A3A', '#5E6B73', '#A33B5E', '#C9A86A'];
-  const RESERVEES = ['#7AAAC9', '#3A342E', '#6B3FA0'];
+                   '#2F7F7A', '#7E8A3A', '#6E4B3A', '#A33B5E', '#C9A86A'];
+  const RESERVEES = ['#7AAAC9', '#4E6E7E', '#6B3FA0'];
+  // Couleurs retirées de la palette, et celle qui les remplace de préférence (l'ardoise est devenue le chocolat).
+  const RETIREES = { '#5E6B73': '#6E4B3A', '#3A342E': null };
 
   /* ---------- Stockage (tout reste sur ce téléphone) ---------- */
   const lire = (k, d) => { try { const v = localStorage.getItem(P + k); return v === null ? d : JSON.parse(v); } catch { return d; } };
@@ -209,13 +211,15 @@
     taches = taches.filter((t) => !t.faite || t.date >= limite);
     faitesMois = Object.fromEntries(Object.entries(faitesMois).filter(([k]) => k.split('|')[1] >= limite)); })();   // une tâche non faite ne s'efface jamais
 
-  // Une catégorie qui porte une couleur réservée en reçoit une libre (l'ocre d'abord).
+  // Une catégorie qui porte une couleur réservée ou retirée en reçoit une libre
+  // (sa remplaçante si elle en a une, sinon l'ocre d'abord).
   function recolorer() {
     let change = false;
     for (const c of categories) {
-      if (!RESERVEES.includes(String(c.coul).toUpperCase())) continue;
+      const coul = String(c.coul).toUpperCase();
+      if (!RESERVEES.includes(coul) && !(coul in RETIREES)) continue;
       const prises = categories.map((x) => String(x.coul).toUpperCase());
-      c.coul = ['#E8A23A', ...PALETTE].find((x) => !prises.includes(x)) || PALETTE[categories.indexOf(c) % PALETTE.length];
+      c.coul = [RETIREES[coul], '#E8A23A', ...PALETTE].filter(Boolean).find((x) => !prises.includes(x)) || PALETTE[categories.indexOf(c) % PALETTE.length];
       change = true;
     }
     if (change) ecrire('categories', categories);
@@ -296,7 +300,7 @@
     const ev = evenements.filter((e) => e.date === date).map((e) => ({ type: 'rdv', id: e.id, deb: e.deb, fin: e.fin, cat: e.cat, titre: e.titre }));
     return [...tr, ...ev, ...seancesCorsia(date)].sort((a, b) => a.deb - b.deb || (a.type === 'rdv') - (b.type === 'rdv'));
   }
-  const RDV = { nom: 'Rendez-vous', coul: '#3A342E' };
+  const RDV = { nom: 'Rendez-vous', coul: '#4E6E7E' };
   const catRdv = (id) => (id ? cat(id) : RDV);
   const CORSIA = { nom: 'Corsia', coul: '#7AAAC9' };
   const couleurDe = (x) => (x.type === 'rdv' ? catRdv(x.cat) : x.type === 'corsia' ? CORSIA : cat(x.cat));
