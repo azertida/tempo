@@ -114,6 +114,12 @@
   .maintenant { display: grid; grid-template-columns: 62px 1fr; gap: 10px; align-items: center; color: var(--violet); font-weight: 700; font-size: 14px; }
   .maintenant span:first-child { text-align: right; }
   .maintenant span:last-child { height: 2px; background: var(--violet); border-radius: 1px; }
+  /* Circonstances : un bandeau sobre en tête de journée, un trait en haut de la carte du jour */
+  .circ { background: var(--sable); border-radius: 12px; padding: 4px 14px; display: flex; flex-direction: column; }
+  .circ .txt { background: none; border: none; text-align: left; font: inherit; color: inherit; padding: 6px 0; cursor: pointer; }
+  .circ .txt small { display: block; font-size: 14px; color: var(--doux); }
+  .circ .actions { margin: 0 0 8px; }
+  .jours button.avec-circ::before { content: ''; position: absolute; top: 6px; left: 22px; right: 22px; height: 3px; border-radius: 2px; background: var(--doux); opacity: .7; }
   /* À faire : des tâches datées, sans heure, sans couleur de catégorie */
   .afaire { display: flex; flex-direction: column; gap: 2px; border: 1.5px solid var(--bord-fort); border-radius: 14px; padding: 6px 12px 8px; background: var(--carte); }
   .afaire .titre-af { font-size: 13px; font-weight: 700; color: var(--doux); text-transform: uppercase; letter-spacing: 0.5px; padding-top: 4px; }
@@ -175,7 +181,7 @@
 <script>
 (() => {
   'use strict';
-  const VERSION = '1.29';
+  const VERSION = '1.30';
   const P = 'tempo.';
   const NB = ' ';
   const FENETRE = 14;              // jours affichés dans la rangée
@@ -202,13 +208,15 @@
   let corsia = lire('corsia', null);         // lien avec Corsia : { c, nom, h: [cours habituels], cours, inter, maj }
   let taches = lire('taches', []);           // à faire : { id, titre, date (échéance), faite (date où elle a été cochée, ou null) }
   let mensuelles = lire('mensuelles', []);   // ce qui revient chaque mois : { id, titre, jour (1 à 31), depuis (date de création) }
+  let circonstances = lire('circonstances', []); // conditions qui pèsent sur des jours sans occuper de créneau : { id, titre, du, au }
   let faitesMois = lire('faitesMois', {});   // occurrences cochées : { "idMensuelle|date": date où elle a été cochée }
   const tout = () => { ecrire('categories', categories); ecrire('trames', trames); ecrire('periodes', periodes); ecrire('parDefaut', parDefaut);
-                       ecrire('evenements', evenements); ecrire('exceptions', exceptions); ecrire('corsia', corsia); ecrire('taches', taches); ecrire('mensuelles', mensuelles); ecrire('faitesMois', faitesMois); };
+                       ecrire('evenements', evenements); ecrire('exceptions', exceptions); ecrire('corsia', corsia); ecrire('taches', taches); ecrire('mensuelles', mensuelles); ecrire('faitesMois', faitesMois); ecrire('circonstances', circonstances); };
   // Ce qui est passé depuis plus de 60 jours s'efface tout seul.
   (() => { const d = new Date(); d.setDate(d.getDate() - 60); const limite = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     evenements = evenements.filter((e) => e.date >= limite); exceptions = exceptions.filter((k) => k.split('|')[1] >= limite);
     taches = taches.filter((t) => !t.faite || t.date >= limite);
+    circonstances = circonstances.filter((c) => c.au >= limite);
     faitesMois = Object.fromEntries(Object.entries(faitesMois).filter(([k]) => k.split('|')[1] >= limite)); })();   // une tâche non faite ne s'efface jamais
 
   // Une catégorie qui porte une couleur réservée ou retirée en reçoit une libre
@@ -386,7 +394,8 @@
       const haut = d === auj ? 'Auj.' : d === plusJours(auj, 1) ? 'Dem.' : ABR[jourDe(d)];
       const arrive = els.filter((x) => x.type !== 'trame');
       const conflit = arrive.some((x, i) => arrive.some((y, k) => k > i && y.deb < x.fin && x.deb < y.fin));
-      return `<button data-jour="${d}" aria-pressed="${d === jourVu}" class="${conge ? 'conge' : ''}" aria-label="${dateLongue(d)}, ${els.length ? els.length + ' élément' + (els.length > 1 ? 's' : '') : 'rien de prévu'}${af.length ? `, ${af.length} à faire` : ''}${conflit ? ', deux rendez-vous en même temps' : ''}">
+      const cs = circonstances.filter((c) => c.du <= d && d <= c.au);
+      return `<button data-jour="${d}" aria-pressed="${d === jourVu}" class="${conge ? 'conge' : ''}${cs.length ? ' avec-circ' : ''}" aria-label="${dateLongue(d)}${cs.length ? ', ' + esc(cs.map((c) => c.titre).join(', ')) : ''}, ${els.length ? els.length + ' élément' + (els.length > 1 ? 's' : '') : 'rien de prévu'}${af.length ? `, ${af.length} à faire` : ''}${conflit ? ', deux rendez-vous en même temps' : ''}">
         ${conflit ? '<span class="alerte" aria-hidden="true">⚠</span>' : ''}<span class="j">${haut}</span><span class="n">${Number(d.slice(8))}</span><span class="points">${points}</span></button>`;
     }).join('');
 
@@ -451,6 +460,20 @@
           : `<div class="actions"><button class="btn petit" data-modtache="${t.id}">Modifier</button><button class="btn petit danger" data-supprtache="${t.id}">Supprimer</button></div>`}</div>`;
     }).join('')}</div>`;
 
+    const periodeTxt = (c) => c.du === c.au ? '' : `du ${dateBreve(c.du)} au ${dateBreve(c.au)}`;
+    const lesCirc = circonstances.filter((c) => c.du <= jourVu && jourVu <= c.au);
+    const blocCirc = lesCirc.map((c) => { const ouvert = ouvertId === 'c:' + c.id;
+      return `<div class="circ"><button class="txt" data-ouvrir="c:${c.id}" aria-expanded="${ouvert}"><b>${esc(c.titre)}</b>${periodeTxt(c) ? `<small>${periodeTxt(c)}</small>` : ''}</button>
+        ${ouvert ? `<div class="actions"><button class="btn petit" data-modcirc="${c.id}">Modifier</button><button class="btn petit danger" data-supprcirc="${c.id}">Supprimer</button></div>` : ''}</div>`; }).join('');
+    const ec = edition?.type === 'circ' ? edition : null;
+    const formCirc = !ec ? '' : `<div class="formulaire" id="formCirc">
+        <strong>${ec.id ? 'Modifier la circonstance' : 'Nouvelle circonstance'}</strong>
+        <label class="champ">Quoi <input type="text" id="titreCirc" maxlength="60" value="${esc(ec.titre || '')}" placeholder="Grève des transports, alerte météo…"></label>
+        <div class="deux"><label class="champ">Du ${boite('duCirc', 'date', ec.du)}</label><label class="champ">Au ${boite('auCirc', 'date', ec.au)}</label></div>
+        <div class="rangee"><button class="btn plein" id="enregCirc">${ec.id ? 'Enregistrer' : 'Ajouter'}</button><button class="btn discret" id="annulerCirc">Annuler</button></div>
+        ${ec.id ? '<button class="btn danger" id="supprCircForm">Supprimer cette circonstance</button>' : ''}
+      </div>`;
+
     const et = edition?.type === 'tache' ? edition : null;
     const formTache = !et ? '' : `<div class="formulaire" id="formTache">
         <strong>${et.id ? 'Modifier la tâche' : 'Nouvelle tâche'}</strong>
@@ -461,7 +484,8 @@
       </div>`;
 
     const e = edition?.type === 'rdv' ? edition : null;
-    const formRdv = et ? formTache : !e ? `<div class="rangee"><button class="btn clair" id="nouveauRdv">+ Rendez-vous</button><button class="btn discret" id="nouvelleTache">+ À faire</button></div>` : `<div class="formulaire" id="formRdv">
+    const formRdv = ec ? formCirc : et ? formTache : !e ? `<div class="rangee"><button class="btn clair" id="nouveauRdv">+ Rendez-vous</button><button class="btn discret" id="nouvelleTache">+ À faire</button></div>
+        <button class="lien" id="nouvelleCirc" style="align-self:center">+ Une circonstance (grève, météo…)</button>` : `<div class="formulaire" id="formRdv">
         <strong>${e.id ? 'Modifier le rendez-vous' : 'Nouveau rendez-vous'}</strong>
         <label class="champ">Quoi <input type="text" id="titreRdv" maxlength="60" value="${esc(e.titre || '')}" placeholder="Dentiste, café avec Marie…"></label>
         <label class="champ">Date ${boite('dateRdv', 'date', e.date)}</label>
@@ -474,15 +498,18 @@
     // Plus tard : les rendez-vous au-delà de la rangée de jours, pour vérifier ce qui est noté.
     const finRangee = plusJours(auj, FENETRE - 1);
     const lointains = [...evenements.filter((x) => x.date > finRangee),
-      ...taches.filter((t) => t.date > finRangee && !t.faite).map((t) => ({ ...t, tache: true, deb: -1 }))]
+      ...taches.filter((t) => t.date > finRangee && !t.faite).map((t) => ({ ...t, tache: true, deb: -1 })),
+      ...circonstances.filter((c) => c.du > finRangee).map((c) => ({ ...c, date: c.du, circ: true, deb: -2 }))]
       .sort((a, b) => a.date.localeCompare(b.date) || a.deb - b.deb);
-    const nR = lointains.filter((x) => !x.tache).length, nT = lointains.length - nR;
-    const resume = [nR ? `${nR} rendez-vous` : '', nT ? `${nT} à faire` : ''].filter(Boolean).join(' · ');
+    const nR = lointains.filter((x) => !x.tache && !x.circ).length, nT = lointains.filter((x) => x.tache).length, nC = lointains.filter((x) => x.circ).length;
+    const resume = [nR ? `${nR} rendez-vous` : '', nT ? `${nT} à faire` : '', nC ? `${nC} circonstance${nC > 1 ? 's' : ''}` : ''].filter(Boolean).join(' · ');
     const plusTard = !lointains.length ? '' : !plusTardOuvert
       ? `<button class="btn secondaire" id="ouvrirPlusTard" aria-expanded="false">Plus tard · ${resume}</button>`
       : `<div class="carte"><div style="display:flex;justify-content:space-between;align-items:center"><h3>Plus tard</h3>
           <button class="lien" id="ouvrirPlusTard" aria-expanded="true">Replier</button></div>
-        ${lointains.map((x) => `<div class="ligne">${x.tache ? '<span class="pastille" style="background:transparent;border:2px solid var(--bleu)"></span>' : `<span class="pastille" style="background:${catRdv(x.cat).coul}"></span>`}
+        ${lointains.map((x) => x.circ ? `<div class="ligne"><span class="pastille" style="background:var(--sable);border:2px solid var(--doux);border-radius:4px"></span>
+          <div class="texte"><b>${esc(x.titre)}</b><small>${x.du === x.au ? dateLongue(x.du) : `Du ${dateBreve(x.du)} au ${dateBreve(x.au)}`}</small></div>
+          <button class="lien" data-modcirc="${x.id}">Modifier</button></div>` : `<div class="ligne">${x.tache ? '<span class="pastille" style="background:transparent;border:2px solid var(--bleu)"></span>' : `<span class="pastille" style="background:${catRdv(x.cat).coul}"></span>`}
           <div class="texte"><b>${esc(x.titre)}</b><small>${x.tache ? 'À faire pour le ' + dateLongue(x.date).toLowerCase() : dateLongue(x.date)}${x.date.slice(0, 4) !== auj.slice(0, 4) ? ' ' + x.date.slice(0, 4) : ''}${x.tache ? '' : ' · ' + heure(x.deb)}</small></div>
           <button class="lien" ${x.tache ? 'data-modtache' : 'data-modrdv'}="${x.id}">Modifier</button></div>`).join('')}</div>`;
 
@@ -491,6 +518,7 @@
       <div class="collant"><div class="jours" role="group" aria-label="Jours">${bande}</div></div>
       <div class="pile">
         <h2>${jourVu === auj ? 'Aujourd’hui' : jourVu === plusJours(auj, 1) ? 'Demain' : ''}${jourVu === auj || jourVu === plusJours(auj, 1) ? `<span class="doux" style="font-family:'Atkinson Hyperlegible',system-ui,sans-serif;font-size:17px;font-weight:400"> · ${dateLongue(jourVu).toLowerCase()}</span>` : dateLongue(jourVu)}</h2>
+        ${blocCirc}
         ${blocTaches}
         ${corps}
         ${formRdv}
@@ -508,7 +536,8 @@
     if (choisi) { const r = choisi.getBoundingClientRect(), br = b.getBoundingClientRect(); if (r.right > br.right) b.scrollLeft += r.right - br.right + 16; else if (r.left < br.left) b.scrollLeft -= br.left - r.left + 16; }
     defil = b.scrollLeft;
     b.addEventListener('scroll', () => { defil = b.scrollLeft; }, { passive: true });
-    b.querySelectorAll('[data-jour]').forEach((x) => x.onclick = () => { jourVu = x.dataset.jour; ouvertId = null; if ((edition?.type === 'rdv' || edition?.type === 'tache') && !edition.id) edition.date = jourVu; afficher(); });
+    b.querySelectorAll('[data-jour]').forEach((x) => x.onclick = () => { jourVu = x.dataset.jour; ouvertId = null; if ((edition?.type === 'rdv' || edition?.type === 'tache') && !edition.id) edition.date = jourVu;
+      if (edition?.type === 'circ' && !edition.id) { edition.du = jourVu; if (edition.au < jourVu) edition.au = jourVu; } afficher(); });
     $app.querySelectorAll('#allerTrames').forEach((x) => x.onclick = () => { ecran = 'trames'; edition = null; afficher(); window.scrollTo(0, 0); });
     document.getElementById('allerPeriodes').onclick = () => { ecran = 'periodes'; edition = null; afficher(); window.scrollTo(0, 0); };
     document.getElementById('allerDonnees').onclick = () => { ecran = 'donnees'; edition = null; afficher(); window.scrollTo(0, 0); };
@@ -548,6 +577,40 @@
       edition = { type: 'mois', ...mensuelles.find((m) => m.id === x.dataset.modmois) }; ouvertId = null; ecran = 'trames'; afficher();
       document.getElementById('formMois').scrollIntoView({ block: 'center' });
     });
+    $app.querySelectorAll('[data-modcirc]').forEach((x) => x.onclick = () => {
+      edition = { type: 'circ', ...circonstances.find((c) => c.id === x.dataset.modcirc) }; ouvertId = null; afficher();
+      document.getElementById('formCirc').scrollIntoView({ block: 'center' });
+    });
+    $app.querySelectorAll('[data-supprcirc]').forEach((x) => x.onclick = () => {
+      const c = circonstances.find((y) => y.id === x.dataset.supprcirc);
+      if (!confirm(`Supprimer «${NB}${c?.titre || 'cette circonstance'}${NB}» ?`)) return;
+      circonstances = circonstances.filter((y) => y.id !== x.dataset.supprcirc); ouvertId = null; tout(); dire('Circonstance supprimée'); afficher();
+    });
+    const nc = document.getElementById('nouvelleCirc');
+    if (nc) nc.onclick = () => {
+      edition = { type: 'circ', id: null, titre: '', du: jourVu, au: jourVu }; afficher();
+      document.getElementById('formCirc').scrollIntoView({ block: 'center' }); document.getElementById('titreCirc').focus();
+    };
+    if (ec) {
+      const garderC = () => { ec.titre = document.getElementById('titreCirc').value; ec.du = document.getElementById('duCirc').value || ec.du; ec.au = document.getElementById('auCirc').value || ec.au; };
+      const fc = document.getElementById('formCirc');
+      fc.addEventListener('input', garderC); fc.addEventListener('change', garderC);
+      document.getElementById('annulerCirc').onclick = () => { edition = null; afficher(); };
+      const sc = document.getElementById('supprCircForm');
+      if (sc) sc.onclick = () => {
+        if (!confirm(`Supprimer «${NB}${ec.titre}${NB}» ?`)) return;
+        circonstances = circonstances.filter((y) => y.id !== ec.id); edition = null; tout(); dire('Circonstance supprimée'); afficher();
+      };
+      document.getElementById('enregCirc').onclick = () => {
+        const titre = document.getElementById('titreCirc').value.trim();
+        const du = document.getElementById('duCirc').value, au = document.getElementById('auCirc').value || du;
+        if (!titre) return dire('Dis en un mot de quoi il s’agit');
+        if (!du) return dire('Choisis à partir de quel jour');
+        if (au < du) return dire('La fin doit venir après le début');
+        if (ec.id) Object.assign(circonstances.find((y) => y.id === ec.id), { titre, du, au }); else circonstances.push({ id: nid(), titre, du, au });
+        edition = null; if (du >= aujourdhui() && du <= plusJours(aujourdhui(), FENETRE - 1)) jourVu = du; tout(); dire(ec.id ? 'Circonstance modifiée' : 'Circonstance ajoutée'); afficher();
+      };
+    }
     const nt = document.getElementById('nouvelleTache');
     if (nt) nt.onclick = () => {
       edition = { type: 'tache', id: null, date: jourVu, titre: '' }; afficher();
@@ -880,7 +943,7 @@
           <p>Un fichier avec toutes tes données, à garder dans tes fichiers. Pour changer de téléphone ou réinstaller Tempo.</p>
           <div class="rangee"><button class="btn" id="exp">Enregistrer une sauvegarde</button><button class="btn" id="imp">Restaurer</button></div></div>
         <div class="encadre"><h3>Tout effacer de ce téléphone</h3>
-          <p>Catégories, trames, calendrier, rendez-vous et tâches. Pour repartir de zéro. Pense à faire une sauvegarde avant, si tu veux pouvoir revenir en arrière.</p>
+          <p>Catégories, trames, calendrier, rendez-vous, tâches et circonstances. Pour repartir de zéro. Pense à faire une sauvegarde avant, si tu veux pouvoir revenir en arrière.</p>
           <button class="btn danger" id="toutEffacer">Tout effacer</button></div>
         <input type="file" id="fichier" accept="application/json,.json" hidden>
         <p class="pied">Tempo · version ${VERSION}</p>
@@ -904,11 +967,11 @@
     if (dl) dl.onclick = () => { corsia = null; tout(); dire('Corsia est déliée'); afficher(); };
     document.getElementById('toutEffacer').onclick = () => {
       if (!confirm('Tout effacer de Tempo sur ce téléphone ?')) return;
-      categories = []; trames = []; periodes = []; parDefaut = null; evenements = []; exceptions = []; corsia = null; taches = []; mensuelles = []; faitesMois = {};
+      categories = []; trames = []; periodes = []; parDefaut = null; evenements = []; exceptions = []; corsia = null; taches = []; mensuelles = []; faitesMois = {}; circonstances = [];
       tout(); dire('Tempo est vide'); ecran = 'jour'; afficher();
     };
     document.getElementById('exp').onclick = () => {
-      const paquet = { app: 'tempo', format: 1, exporte: new Date().toISOString(), categories, trames, periodes, parDefaut, evenements, exceptions, corsia, taches, mensuelles, faitesMois };
+      const paquet = { app: 'tempo', format: 1, exporte: new Date().toISOString(), categories, trames, periodes, parDefaut, evenements, exceptions, corsia, taches, mensuelles, faitesMois, circonstances };
       const url = URL.createObjectURL(new Blob([JSON.stringify(paquet, null, 2)], { type: 'application/json' }));
       const a = document.createElement('a'); a.href = url; a.download = `tempo-${aujourdhui()}.json`; document.body.appendChild(a); a.click(); a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 2000); dire('Sauvegarde enregistrée');
@@ -947,7 +1010,7 @@
     if (!p || p.app !== 'tempo') return dire('Ce fichier n’est pas une sauvegarde de Tempo');
     if (!confirm('Remplacer tout ce qui est dans Tempo par cette sauvegarde ?')) return;
     categories = p.categories || []; trames = p.trames || []; periodes = p.periodes || []; parDefaut = p.parDefaut || null;
-    evenements = p.evenements || []; exceptions = p.exceptions || []; corsia = p.corsia || null; taches = p.taches || []; mensuelles = p.mensuelles || []; faitesMois = p.faitesMois || {};
+    evenements = p.evenements || []; exceptions = p.exceptions || []; corsia = p.corsia || null; taches = p.taches || []; mensuelles = p.mensuelles || []; faitesMois = p.faitesMois || {}; circonstances = p.circonstances || [];
     recolorer(); tout(); dire('Sauvegarde restaurée'); ecran = 'jour'; afficher();
   }
 
