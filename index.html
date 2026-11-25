@@ -61,6 +61,8 @@
   .btn.petit { min-height: 40px; font-size: 15px; padding: 0 12px; }
   .btn.danger { color: var(--rouge); border-color: var(--bord-fort); }
   .btn:disabled { opacity: 0.5; }
+  .btn.circ-btn { background: var(--sable); border-color: var(--sable); color: var(--encre); font-weight: 600; }
+  .btn.circ-btn span { color: var(--doux); font-weight: 400; margin-left: 4px; }
   .rangee { display: flex; gap: 10px; flex-wrap: wrap; }
   .rangee .btn { flex: 1 1 140px; }
 
@@ -485,7 +487,7 @@
 
     const e = edition?.type === 'rdv' ? edition : null;
     const formRdv = ec ? formCirc : et ? formTache : !e ? `<div class="rangee"><button class="btn clair" id="nouveauRdv">+ Rendez-vous</button><button class="btn discret" id="nouvelleTache">+ À faire</button></div>
-        <button class="lien" id="nouvelleCirc" style="align-self:center">+ Une circonstance (grève, météo…)</button>` : `<div class="formulaire" id="formRdv">
+        <button class="btn petit circ-btn" id="nouvelleCirc">+ Circonstance <span>grève, météo…</span></button>` : `<div class="formulaire" id="formRdv">
         <strong>${e.id ? 'Modifier le rendez-vous' : 'Nouveau rendez-vous'}</strong>
         <label class="champ">Quoi <input type="text" id="titreRdv" maxlength="60" value="${esc(e.titre || '')}" placeholder="Dentiste, café avec Marie…"></label>
         <label class="champ">Date ${boite('dateRdv', 'date', e.date)}</label>
